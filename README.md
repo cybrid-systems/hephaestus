@@ -138,14 +138,17 @@ hephaestus/
 ├── scripts/
 │   └── run-aura.sh
 ├── lib/
-│   ├── hephaestus-min.aura      # Phase-1 facade (A+F)
+│   ├── hephaestus-min.aura      # Phase 1–3 facade (A+B+C+F)
 │   ├── hephaestus-kernel.aura   # pure-Aura numerical kernels
-│   ├── hephaestus-measure.aura  # stats / wall-time metrology
+│   ├── hephaestus-measure.aura  # alist stats / wall-time metrology
+│   ├── hephaestus-mutate.aura   # rebind / snapshot / restore
+│   ├── hephaestus-own.aura      # ownership / nodes / quota checks
 │   └── README.md
 ├── examples/
 │   ├── _template/
 │   ├── 01-minimal-kernel/       # Phase 1 denseness probe
-│   └── 02-mutation-under-load/  # Phase 2 denseness probe
+│   ├── 02-mutation-under-load/  # Phase 2 denseness probe
+│   └── 03-ownership-transfer/   # Phase 3 denseness probe
 ├── notes/
 │   ├── aura-unify.md        # Unify theory (read first)
 │   ├── escape-log.md
