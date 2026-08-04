@@ -21,7 +21,8 @@ Each probe is a self-contained denseness experiment.
 | 02 | [mutation-under-load](02-mutation-under-load/) | A B F | **PASS** |
 | 03 | [ownership-transfer](03-ownership-transfer/) | A B C F | **PASS** |
 | 04 | [jit-specialization](04-jit-specialization/) | A B D F C | **PASS** |
-| 05 | perf-escape / soak (planned) | E F | planned |
+| 05 | [perf-escape-boundary](05-perf-escape-boundary/) | A B C E F | **PASS** (core \(E\)=0, edge metered) |
+| 06 | [long-n-soak](06-long-n-soak/) | A B C D F | **PASS** N=25 |
 
 ## Phase map (aligned with README)
 
@@ -31,4 +32,4 @@ Each probe is a self-contained denseness experiment.
 | **2** | 02 | Mutation / rebind under controlled load — **landed** |
 | **3** | 03 | Ownership / AST integrity under alloc + rebind — **landed** |
 | **4** | 04 | Pure-Aura specialization under load — **landed** |
-| **5** | 05… | Controlled performance \(E\) + soak + denseness judgment |
+| **5** | 05–06 | Controlled \(E\) boundary + soak + **denseness judgment** — **landed** |

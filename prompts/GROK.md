@@ -72,17 +72,20 @@ Rollback (if needed)      →  Specialize / Bind
 
 ## Current phase goal
 
-**Phase 1–4 landed;** next is Phase 5 (performance \(E\) boundary / soak / denseness judgment).
+**Phase 1–5 complete.** Denseness judgment: practically dense on scoped \(S_{\mathrm{Hephaestus}}\) (see `notes/denseness-report.md`).
 
 | Probe | Status |
 |-------|--------|
-| `examples/01-minimal-kernel` | **PASS** (escapes=0) |
-| `examples/02-mutation-under-load` | **PASS** (escapes=0) |
-| `examples/03-ownership-transfer` | **PASS** (escapes=0) |
-| `examples/04-jit-specialization` | **PASS** (escapes=0) |
-| perf-escape / soak (05+) | next |
+| `examples/01-minimal-kernel` | **PASS** |
+| `examples/02-mutation-under-load` | **PASS** |
+| `examples/03-ownership-transfer` | **PASS** |
+| `examples/04-jit-specialization` | **PASS** |
+| `examples/05-perf-escape-boundary` | **PASS** (core \(E\)=0, edge metered) |
+| `examples/06-long-n-soak` | **PASS** N=25 escapes=0 |
 
-Host style notes (see `notes/host-residuals.md`): use **`let*`** carefully; prefer **literals** in helpers (H8 free-var capture); use **`while`** not deep recursion; size loads for 1s wall clock; **alist stats** not large hashes (H6); JIT counters sparse (H7).
+**Next (optional):** concurrent fiber mutation, longer soak, SIMD/pin edges — only if they extend the denseness claim.
+
+Host style notes (see `notes/host-residuals.md`): prefer **literals** in helpers (H8); **`while`** not deep recursion; **alist stats** (H6); JIT counters sparse (H7); every new escape → `notes/escape-log.md`.
 
 When generating code or probes, keep the denseness claim **testable** and the escape discipline **strict**.
 

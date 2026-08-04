@@ -1,0 +1,64 @@
+; lib/hephaestus-escape.aura — Axis E: controlled escape metering
+;
+; (require "hephaestus-escape" all:)
+;
+; Escapes leave pure Aura (V_A) for FFI / foreign kernels. Denseness requires
+; they be rare, metered, and off the evolvable-core hot path when possible.
+
+(export heph:escape-note!
+        heph:escape-count
+        heph:with-escape
+        heph:ffi-abs
+        heph:pure-abs
+        heph:ffi-sqrt
+        heph:escape-version)
+
+(require "hephaestus-measure" all:)
+
+(define heph:escape-version 1)
+
+; Record one escape event (bumps stats "escapes").
+; reason: short string for probe logs (not persisted beyond process).
+(define (heph:escape-note! reason)
+  (heph:stats-bump! "escapes")
+  (heph:stats-set! "last_escape_reason"
+    (if (string? reason) 1 0))
+  #t)
+
+(define (heph:escape-count)
+  (heph:stats-ref "escapes"))
+
+; Run thunk after noting an escape. Returns thunk result.
+(define (heph:with-escape reason thunk)
+  (heph:escape-note! reason)
+  (thunk))
+
+; ── Pure-Aura reference (no E) ──
+(define (heph:pure-abs x)
+  (if (< x 0) (- 0 x) x))
+
+; ── FFI escape: libc abs (Int) via RTLD_DEFAULT ──
+; Lazy bind once; each *call* is an escape event (metered).
+(define *heph-ffi-abs* #f)
+
+(define (heph:ffi-abs-bind!)
+  (if *heph-ffi-abs*
+    *heph-ffi-abs*
+    (begin
+      (set! *heph-ffi-abs* (c-func -1 "abs" "(Int) -> Int"))
+      *heph-ffi-abs*)))
+
+(define (heph:ffi-abs x)
+  (heph:escape-note! "ffi-abs")
+  (let ((f (heph:ffi-abs-bind!)))
+    (f x)))
+
+; Optional float escape (not required by probes; available for demos).
+(define *heph-ffi-sqrt* #f)
+
+(define (heph:ffi-sqrt x)
+  (heph:escape-note! "ffi-sqrt")
+  (if (not *heph-ffi-sqrt*)
+    (set! *heph-ffi-sqrt* (c-func -1 "sqrt" "(Float) -> Float"))
+    #f)
+  (*heph-ffi-sqrt* x))

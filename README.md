@@ -138,18 +138,21 @@ hephaestus/
 ├── scripts/
 │   └── run-aura.sh
 ├── lib/
-│   ├── hephaestus-min.aura      # Phase 1–3 facade (A+B+C+F)
+│   ├── hephaestus-min.aura      # Phase 1–5 facade (A–F)
 │   ├── hephaestus-kernel.aura   # pure-Aura numerical kernels
 │   ├── hephaestus-measure.aura  # alist stats / wall-time metrology
 │   ├── hephaestus-mutate.aura   # rebind / snapshot / restore
 │   ├── hephaestus-own.aura      # ownership / nodes / quota checks
+│   ├── hephaestus-escape.aura   # metered FFI edge (axis E)
 │   └── README.md
 ├── examples/
 │   ├── _template/
-│   ├── 01-minimal-kernel/       # Phase 1 denseness probe
-│   ├── 02-mutation-under-load/  # Phase 2 denseness probe
-│   ├── 03-ownership-transfer/   # Phase 3 denseness probe
-│   └── 04-jit-specialization/   # Phase 4 denseness probe
+│   ├── 01-minimal-kernel/
+│   ├── 02-mutation-under-load/
+│   ├── 03-ownership-transfer/
+│   ├── 04-jit-specialization/
+│   ├── 05-perf-escape-boundary/
+│   └── 06-long-n-soak/
 ├── notes/
 │   ├── aura-unify.md        # Unify theory (read first)
 │   ├── escape-log.md
@@ -159,15 +162,15 @@ hephaestus/
     └── GROK.md
 ```
 
-## Span order (planned)
+## Span order
 
-| Phase | Focus |
-|-------|--------|
-| **1** | Minimal pure-Aura numerical kernels + baseline metrology |
-| **2** | Mutation / rebind of kernels under controlled load |
-| **3** | Ownership transfer + concurrent mutation safety |
-| **4** | Controlled performance escapes (FFI / SIMD) + denseness accounting |
-| **5** | Longer soak, regression under continuous mutation, first denseness report |
+| Phase | Focus | Status |
+|-------|--------|--------|
+| **1** | Minimal pure-Aura numerical kernels + baseline metrology | **done** (01) |
+| **2** | Mutation / rebind of kernels under controlled load | **done** (02) |
+| **3** | Ownership / AST integrity under alloc + rebind | **done** (03) |
+| **4** | Pure-Aura specialization under load | **done** (04) |
+| **5** | Controlled \(E\) + soak + denseness judgment | **done** (05–06) |
 
 ## Escape discipline
 
@@ -186,18 +189,15 @@ Apache License 2.0 (same as Aura and Aether)
 
 ## Status
 
-**Phase 1–4 landed.** Probes **01**–**04** PASS with escapes=0 (kernels, mutation, ownership, pure-Aura specialization).
+**Phase 1–5 complete — denseness judgment recorded.**
+
+On scoped \(S_{\mathrm{Hephaestus}}\), \(V_A\) is **practically dense** for the evolvable / tunable core: pure-Aura kernels, rebind under load, ownership checks, specialization, and N=25 soak stay at **core \(E=0\)**; intentional FFI edges are **metered and isolated** (probe 05). Full write-up: [`notes/denseness-report.md`](notes/denseness-report.md).
 
 ```bash
-./scripts/run-aura.sh examples/01-minimal-kernel/main.aura
-./scripts/run-aura.sh examples/02-mutation-under-load/main.aura
-./scripts/run-aura.sh examples/03-ownership-transfer/main.aura
-./scripts/run-aura.sh examples/04-jit-specialization/main.aura
+for p in 01-minimal-kernel 02-mutation-under-load 03-ownership-transfer \
+         04-jit-specialization 05-perf-escape-boundary 06-long-n-soak; do
+  ./scripts/run-aura.sh "examples/$p/main.aura" || exit 1
+done
 ```
 
-Hephaestus continues the constructive measurement program of Aura Unify:
-after Aether established denseness on the agent + mutation closed-loop subspace,
-we now pressure-test the same basis against the second highest-leverage region —
-performance, numerical kernels, and systems hot paths.
-
-See [`notes/denseness-report.md`](notes/denseness-report.md).
+Hephaestus continues Aura Unify’s constructive measurement program after Aether’s agent-loop denseness result — pressure-testing the same basis on performance / numerical / systems-kernel subspace.

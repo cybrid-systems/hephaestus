@@ -1,0 +1,186 @@
+; examples/05-perf-escape-boundary/main.aura
+;
+; Phase 5 denseness probe — controlled performance escape boundary (axis E).
+;
+; Claim shape:
+;   P ≈ A ⊕ E
+;   - A: evolvable pure-Aura kernel (kscale) + load/verify/own-check
+;   - E: thin metered FFI (libc abs) on an isolated edge — not on decide/verify core
+;
+; Scenario:
+;   E0: pure-Aura abs matches FFI abs on samples (semantic parity)
+;   E1: pure core rebind + load still works with escapes=0 so far
+;   E2: intentional FFI edge calls; escapes metered; core still pure rebindable
+;   E3: after FFI use, rebind core again + own-check (E does not break A)
+;
+; Escape log: notes/escape-log.md (ffi-abs)
+;
+; Run: ./scripts/run-aura.sh examples/05-perf-escape-boundary/main.aura
+
+(require "hephaestus-min" all:)
+
+(heph:stats-reset!)
+
+(display "=== Hephaestus 05-perf-escape-boundary ===")
+(newline)
+(display "heph:min-version=")
+(display heph:min-version)
+(display " escape-version=")
+(display heph:escape-version)
+(newline)
+
+(define installed
+  (heph:install-source "(define kscale (lambda (x) (* x 2)))"))
+
+(if (not installed)
+  (begin
+    (display "FAIL: install")
+    (newline)
+    (display "RESULT fail example=05-perf-escape-boundary")
+    (newline))
+  (let* ((N 256)
+         (reps 150))
+
+    ; ── E0: pure vs FFI abs parity (each FFI call is one E) ──
+    (define samples (list -7 0 3 -100 42))
+    (define (parity-ok?)
+      (let ((xs samples) (ok #t))
+        (while (lambda () (and ok (pair? xs)))
+          (lambda ()
+            (let* ((x (car xs))
+                   (p (heph:pure-abs x))
+                   (f (heph:ffi-abs x)))
+              (if (not (= p f))
+                (set! ok #f)
+                #f)
+              (set! xs (cdr xs)))))
+        ok))
+
+    (define e0-escapes-before (heph:escape-count))
+    (define e0-ok (parity-ok?))
+    (define e0-escapes (heph:escape-count))
+    (define e0-escape-delta (- e0-escapes e0-escapes-before))
+    ; 5 samples → 5 ffi-abs escapes
+    (define e0-meter-ok (= e0-escape-delta 5))
+    (display "E0 pure/FFI abs parity ok=")
+    (display e0-ok)
+    (display " escape-delta=")
+    (display e0-escape-delta)
+    (display " meter-ok=")
+    (display e0-meter-ok)
+    (newline)
+
+    ; ── E1: pure core load (no new E required) ──
+    (define (run-core-load)
+      (let ((k 0) (last 0))
+        (while (lambda () (< k 150))
+          (lambda ()
+            (let ((i 1) (acc 0))
+              (while (lambda () (<= i 256))
+                (lambda ()
+                  (set! acc (+ acc (kscale i)))
+                  (set! i (+ i 1))))
+              (set! last acc)
+              (set! k (+ k 1)))))
+        last))
+
+    (define (closed-core factor)
+      (/ (* factor (* 256 257)) 2))
+
+    (define esc-before-core (heph:escape-count))
+    (define core1 (heph:time-call run-core-load (* 150 256)))
+    (define core1-ok
+      (heph:check-eq (heph:alist-ref ":result" core1 0) (closed-core 2)))
+    (define esc-after-core (heph:escape-count))
+    (define core-no-new-e (= esc-before-core esc-after-core))
+    (define c1 (heph:record-own! (heph:own-check)))
+    (define c1-ok (eq? (heph:alist-ref ":all-ok" c1 #f) #t))
+    (display "E1 pure core load ok=")
+    (display core1-ok)
+    (display " no-new-E=")
+    (display core-no-new-e)
+    (display " own-ok=")
+    (display c1-ok)
+    (display " ")
+    (write core1)
+    (newline)
+
+    ; ── E2: rebind pure core while E edge already used ──
+    (define r2 (heph:rebind-safe "kscale" "(lambda (x) (* x 3))" "e-core-triple"))
+    (define r2-ok (eq? (heph:alist-ref ":ok" r2 #f) #t))
+    (define core2 (heph:time-call run-core-load (* 150 256)))
+    (define core2-ok
+      (and r2-ok
+           (heph:check-eq (heph:alist-ref ":result" core2 0) (closed-core 3))
+           (heph:check-eq (kscale 7) 21)))
+    ; isolated FFI edge still available
+    (define edge (heph:ffi-abs -99))
+    (define edge-ok (and (heph:check-eq edge 99)
+                         (heph:check-eq (heph:pure-abs -99) 99)))
+    (define c2 (heph:record-own! (heph:own-check)))
+    (define c2-ok (eq? (heph:alist-ref ":all-ok" c2 #f) #t))
+    (display "E2 rebind core + FFI edge ok=")
+    (display core2-ok)
+    (display " edge-ok=")
+    (display edge-ok)
+    (display " own-ok=")
+    (display c2-ok)
+    (display " escapes=")
+    (display (heph:escape-count))
+    (newline)
+
+    ; ── E3: another core rebind after more E; restore ──
+    (define snap (heph:snapshot "e-before-five"))
+    (define r3 (heph:rebind-safe "kscale" "(lambda (x) (* x 5))" "e-core-five"))
+    (define core3-ok
+      (and (eq? (heph:alist-ref ":ok" r3 #f) #t)
+           (heph:check-eq (kscale 7) 35)
+           (heph:check-eq (run-core-load) (closed-core 5))))
+    (define restored (heph:restore snap))
+    ; restore returns to pre-five (triple from E2)
+    (define after-restore-ok
+      (and restored
+           (heph:check-eq (kscale 7) 21)
+           (heph:check-eq (run-core-load) (closed-core 3))))
+    (define c3 (heph:record-own! (heph:own-check)))
+    (define c3-ok (eq? (heph:alist-ref ":all-ok" c3 #f) #t))
+    (display "E3 five then restore ok=")
+    (display core3-ok)
+    (display "/")
+    (display after-restore-ok)
+    (display " own-ok=")
+    (display c3-ok)
+    (newline)
+
+    (display "stats: ")
+    (write (heph:stats-alist))
+    (newline)
+    (display "escape-count=")
+    (display (heph:escape-count))
+    (newline)
+    (display "NOTE: escapes>0 is intentional (axis E); core path metered separately")
+    (newline)
+
+    ; denseness: core never required E; E metered; own/correctness hold
+    (define all-ok
+      (and e0-ok e0-meter-ok
+           core1-ok core-no-new-e c1-ok
+           core2-ok edge-ok c2-ok
+           core3-ok after-restore-ok c3-ok
+           (= (heph:stats-ref "correctness_fail") 0)
+           (= (heph:stats-ref "ownership_fail") 0)
+           (>= (heph:escape-count) 6)
+           (heph:own-ok?)))
+
+    (if all-ok
+      (begin
+        (display "PASS: controlled E boundary; pure core denseness preserved")
+        (newline)
+        (display "RESULT pass example=05-perf-escape-boundary core_E=0 edge_E=")
+        (display (heph:escape-count))
+        (newline))
+      (begin
+        (display "FAIL: perf escape boundary probe")
+        (newline)
+        (display "RESULT fail example=05-perf-escape-boundary")
+        (newline)))))

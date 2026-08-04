@@ -1,0 +1,135 @@
+; examples/06-long-n-soak/main.aura
+;
+; Phase 5 denseness soak — multi-round specialize + load + own-check.
+; Axes: A B C D F (no new E required on core path).
+;
+; Rounds N=25:
+;   cycle kscale factor among 2,3,5 via rebind
+;   run pure-Aura load; verify closed form
+;   own-check every round
+;   escapes must stay 0 (soak does not touch FFI edge)
+;
+; Run: ./scripts/run-aura.sh examples/06-long-n-soak/main.aura
+
+(require "hephaestus-min" all:)
+
+(heph:stats-reset!)
+
+(display "=== Hephaestus 06-long-n-soak ===")
+(newline)
+
+(define N-rounds 25)
+
+(define installed
+  (heph:install-source "(define kscale (lambda (x) (* x 2)))"))
+
+(if (not installed)
+  (begin
+    (display "FAIL: install")
+    (newline)
+    (display "RESULT fail example=06-long-n-soak")
+    (newline))
+  (begin
+    (define (run-load)
+      (let ((k 0) (last 0))
+        (while (lambda () (< k 80))
+          (lambda ()
+            (let ((i 1) (acc 0))
+              (while (lambda () (<= i 128))
+                (lambda ()
+                  (set! acc (+ acc (kscale i)))
+                  (set! i (+ i 1))))
+              (set! last acc)
+              (set! k (+ k 1)))))
+        last))
+
+    (define (closed factor)
+      (/ (* factor (* 128 129)) 2))
+
+    (define (body-for factor)
+      (cond ((= factor 2) "(lambda (x) (* x 2))")
+            ((= factor 3) "(lambda (x) (* x 3))")
+            ((= factor 5) "(lambda (x) (* x 5))")
+            (else "(lambda (x) (* x 2))")))
+
+    (define (factor-for round)
+      (let ((m (modulo round 3)))
+        (cond ((= m 0) 2)
+              ((= m 1) 3)
+              (else 5))))
+
+    (define round 0)
+    (define fail-count 0)
+    (define own-fail 0)
+    (define rebind-fail 0)
+
+    (while (lambda () (< round N-rounds))
+      (lambda ()
+        (let* ((fac (factor-for round))
+               (r (heph:rebind-safe "kscale" (body-for fac)
+                                    (string-append "soak-" 
+                                      (if (number? round)
+                                        (number->string round)
+                                        "x"))))
+               (r-ok (eq? (heph:alist-ref ":ok" r #f) #t))
+               (sum (run-load))
+               (want (closed fac))
+               (sum-ok (and (number? sum) (number? want) (= sum want)))
+               (sample-ok (= (kscale 7) (* fac 7)))
+               (chk (heph:own-check))
+               (own-ok (eq? (heph:alist-ref ":all-ok" chk #f) #t)))
+          (if (not r-ok)
+            (set! rebind-fail (+ rebind-fail 1))
+            #f)
+          (if (not (and sum-ok sample-ok))
+            (begin
+              (set! fail-count (+ fail-count 1))
+              (heph:stats-bump! "correctness_fail"))
+            (begin
+              (heph:stats-bump! "correctness_ok")
+              (heph:stats-bump! "kernels_run")))
+          (if (not own-ok)
+            (begin
+              (set! own-fail (+ own-fail 1))
+              (heph:stats-bump! "ownership_fail"))
+            (heph:stats-bump! "ownership_ok"))
+          (set! round (+ round 1)))))
+
+    (display "rounds=")
+    (display N-rounds)
+    (display " fail-count=")
+    (display fail-count)
+    (display " own-fail=")
+    (display own-fail)
+    (display " rebind-fail=")
+    (display rebind-fail)
+    (display " escapes=")
+    (display (heph:escape-count))
+    (newline)
+    (display "stats: ")
+    (write (heph:stats-alist))
+    (newline)
+    (display "final own-check: ")
+    (write (heph:own-check))
+    (newline)
+
+    (define all-ok
+      (and (= fail-count 0)
+           (= own-fail 0)
+           (= rebind-fail 0)
+           (= (heph:escape-count) 0)
+           (= (heph:stats-ref "correctness_fail") 0)
+           (= (heph:stats-ref "ownership_fail") 0)
+           (heph:own-ok?)))
+
+    (if all-ok
+      (begin
+        (display "PASS: soak N=25 rebind+load+own (escapes=0)")
+        (newline)
+        (display "RESULT pass example=06-long-n-soak escapes=0 rounds=25")
+        (newline))
+      (begin
+        (display "FAIL: soak denseness probe")
+        (newline)
+        (display "RESULT fail example=06-long-n-soak")
+        (newline)))))
