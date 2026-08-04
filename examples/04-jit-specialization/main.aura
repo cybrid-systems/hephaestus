@@ -1,0 +1,200 @@
+; examples/04-jit-specialization/main.aura
+;
+; Phase 4 denseness probe — specialize pure-Aura kernels via rebind.
+; Axes: A + B + D + F (+ C). Escapes: 0.
+;
+; Run: ./scripts/run-aura.sh examples/04-jit-specialization/main.aura
+
+(require "hephaestus-min" all:)
+
+(heph:stats-reset!)
+
+(display "=== Hephaestus 04-jit-specialization ===")
+(newline)
+
+(define loop-body
+  "(lambda (n) (let ((i 0) (acc 0)) (while (lambda () (< i n)) (lambda () (set! acc (+ acc (* i i))) (set! i (+ i 1)))) acc))")
+
+(define closed-body
+  "(lambda (n) (if (<= n 0) 0 (/ (* (- n 1) n (- (* 2 n) 1)) 6)))")
+
+(define installed
+  (heph:install-source
+    (string-append "(define sum-kernel " loop-body ")"
+                   " (define kscale (lambda (x) (* x 2)))")))
+
+(if (not installed)
+  (begin
+    (display "FAIL: install")
+    (newline)
+    (display "RESULT fail example=04-jit-specialization")
+    (newline))
+  (let* ((n-ref 5000)
+         (n-load 150000)
+         (want-ref (heph:closed-sum-sq n-ref))
+         (want-load (heph:closed-sum-sq n-load))
+         ; S3 map-load constants (literals inside helpers — avoid free-var capture)
+         (N 512)
+         (reps 200))
+
+    ; Warm load: sum_{i=1..N} kscale(i), repeated `reps` times. Only free var: kscale.
+    (define (run-map-load)
+      (let ((k 0) (last 0))
+        (while (lambda () (< k 200))
+          (lambda ()
+            (let ((i 1) (acc 0))
+              (while (lambda () (<= i 512))
+                (lambda ()
+                  (set! acc (+ acc (kscale i)))
+                  (set! i (+ i 1))))
+              (set! last acc)
+              (set! k (+ k 1)))))
+        last))
+
+    ; sum_{i=1}^{512} factor*i = factor * 512*513/2
+    (define (closed-map factor)
+      (/ (* factor (* 512 513)) 2))
+
+    ; ── S1 ──
+    (define s1-ref-ok (heph:check-eq (sum-kernel n-ref) want-ref))
+    (define timed1 (heph:time-call (lambda () (sum-kernel n-load)) n-load))
+    (define s1-load-ok
+      (heph:check-eq (heph:alist-ref ":result" timed1 0) want-load))
+    (define c1 (heph:record-own! (heph:own-check)))
+    (define c1-ok (eq? (heph:alist-ref ":all-ok" c1 #f) #t))
+    (display "S1 ref-ok=")
+    (display s1-ref-ok)
+    (display " load-ok=")
+    (display s1-load-ok)
+    (display " own-ok=")
+    (display c1-ok)
+    (newline)
+    (display "S1 load: ")
+    (write timed1)
+    (newline)
+
+    ; ── S2 ──
+    (define r2 (heph:rebind-safe "sum-kernel" closed-body "spec-closed-form"))
+    (define r2-ok (eq? (heph:alist-ref ":ok" r2 #f) #t))
+    (define snap-closed (heph:alist-ref ":snap" r2 -1))
+    (define s2-ref-ok (heph:check-eq (sum-kernel n-ref) want-ref))
+    (define timed2 (heph:time-call (lambda () (sum-kernel n-load)) n-load))
+    (define s2-load-ok
+      (heph:check-eq (heph:alist-ref ":result" timed2 0) want-load))
+    (define c2 (heph:record-own! (heph:own-check)))
+    (define c2-ok (eq? (heph:alist-ref ":all-ok" c2 #f) #t))
+    (display "S2 rebind: ")
+    (write r2)
+    (newline)
+    (display "S2 ref-ok=")
+    (display s2-ref-ok)
+    (display " load-ok=")
+    (display s2-load-ok)
+    (display " own-ok=")
+    (display c2-ok)
+    (newline)
+    (display "S2 load: ")
+    (write timed2)
+    (newline)
+
+    ; ── S3 ──
+    (define pre (heph:time-call run-map-load (* reps N)))
+    (define pre-ok
+      (heph:check-eq (heph:alist-ref ":result" pre 0) (closed-map 2)))
+    (define r3a (heph:rebind-safe "kscale" "(lambda (x) (* x 3))" "spec-k-triple"))
+    (define post3 (heph:time-call run-map-load (* reps N)))
+    (define post3-ok
+      (and (eq? (heph:alist-ref ":ok" r3a #f) #t)
+           (heph:check-eq (heph:alist-ref ":result" post3 0) (closed-map 3))
+           (heph:check-eq (kscale 7) 21)))
+    (define r3b
+      (heph:rebind-safe "kscale" "(lambda (x) (+ x x x))" "spec-k-fused"))
+    (define post-fused (heph:time-call run-map-load (* reps N)))
+    (define fused-ok
+      (and (eq? (heph:alist-ref ":ok" r3b #f) #t)
+           (heph:check-eq (heph:alist-ref ":result" post-fused 0) (closed-map 3))
+           (heph:check-eq (kscale 7) 21)))
+    (define r3c (heph:rebind-safe "kscale" "(lambda (x) (* x 5))" "spec-k-five"))
+    (define post5 (heph:time-call run-map-load (* reps N)))
+    (define post5-ok
+      (and (eq? (heph:alist-ref ":ok" r3c #f) #t)
+           (heph:check-eq (heph:alist-ref ":result" post5 0) (closed-map 5))
+           (heph:check-eq (kscale 7) 35)))
+    (define c3 (heph:record-own! (heph:own-check)))
+    (define c3-ok (eq? (heph:alist-ref ":all-ok" c3 #f) #t))
+    (display "S3 pre-ok=")
+    (display pre-ok)
+    (display " ")
+    (write pre)
+    (newline)
+    (display "S3 triple-ok=")
+    (display post3-ok)
+    (display " ")
+    (write post3)
+    (newline)
+    (display "S3 fused-ok=")
+    (display fused-ok)
+    (display " ")
+    (write post-fused)
+    (newline)
+    (display "S3 five-ok=")
+    (display post5-ok)
+    (display " own-ok=")
+    (display c3-ok)
+    (display " ")
+    (write post5)
+    (newline)
+
+    ; ── S4 ──
+    (define restored
+      (if (and (number? snap-closed) (>= snap-closed 0))
+        (heph:restore snap-closed)
+        #f))
+    (define sum-ok
+      (and restored (heph:check-eq (sum-kernel n-ref) want-ref)))
+    (define c4 (heph:record-own! (heph:own-check)))
+    (define c4-ok (eq? (heph:alist-ref ":all-ok" c4 #f) #t))
+    (display "S4 restore=")
+    (display restored)
+    (display " sum-ok=")
+    (display sum-ok)
+    (display " own-ok=")
+    (display c4-ok)
+    (display " sum=")
+    (display (sum-kernel n-ref))
+    (display " kscale(7)=")
+    (display (kscale 7))
+    (newline)
+    (display "stats: ")
+    (write (heph:stats-alist))
+    (newline)
+    (try
+      (begin
+        (display "H7 block-dirty-count=")
+        (display (compile:block-dirty-count))
+        (newline))
+      (catch (e)
+        (display "H7 compile surface unavailable")
+        (newline)))
+
+    (define all-ok
+      (and s1-ref-ok s1-load-ok c1-ok
+           r2-ok s2-ref-ok s2-load-ok c2-ok
+           pre-ok post3-ok fused-ok post5-ok c3-ok
+           sum-ok c4-ok
+           (= (heph:stats-ref "correctness_fail") 0)
+           (= (heph:stats-ref "ownership_fail") 0)
+           (= (heph:stats-ref "escapes") 0)
+           (heph:own-ok?)))
+
+    (if all-ok
+      (begin
+        (display "PASS: pure-Aura specialization chain under load (escapes=0)")
+        (newline)
+        (display "RESULT pass example=04-jit-specialization escapes=0")
+        (newline))
+      (begin
+        (display "FAIL: specialization denseness probe")
+        (newline)
+        (display "RESULT fail example=04-jit-specialization")
+        (newline)))))

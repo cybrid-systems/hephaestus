@@ -148,7 +148,8 @@ hephaestus/
 │   ├── _template/
 │   ├── 01-minimal-kernel/       # Phase 1 denseness probe
 │   ├── 02-mutation-under-load/  # Phase 2 denseness probe
-│   └── 03-ownership-transfer/   # Phase 3 denseness probe
+│   ├── 03-ownership-transfer/   # Phase 3 denseness probe
+│   └── 04-jit-specialization/   # Phase 4 denseness probe
 ├── notes/
 │   ├── aura-unify.md        # Unify theory (read first)
 │   ├── escape-log.md
@@ -185,12 +186,13 @@ Apache License 2.0 (same as Aura and Aether)
 
 ## Status
 
-**Phase 1–3 landed.** Probes **01**–**03** PASS with escapes=0 (kernels, mutation under load, ownership under alloc/rebind/restore).
+**Phase 1–4 landed.** Probes **01**–**04** PASS with escapes=0 (kernels, mutation, ownership, pure-Aura specialization).
 
 ```bash
 ./scripts/run-aura.sh examples/01-minimal-kernel/main.aura
 ./scripts/run-aura.sh examples/02-mutation-under-load/main.aura
 ./scripts/run-aura.sh examples/03-ownership-transfer/main.aura
+./scripts/run-aura.sh examples/04-jit-specialization/main.aura
 ```
 
 Hephaestus continues the constructive measurement program of Aura Unify:

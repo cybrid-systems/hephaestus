@@ -72,16 +72,17 @@ Rollback (if needed)      →  Specialize / Bind
 
 ## Current phase goal
 
-**Phase 1–3 landed;** next is Phase 4 (JIT specialization / performance \(E\)).
+**Phase 1–4 landed;** next is Phase 5 (performance \(E\) boundary / soak / denseness judgment).
 
 | Probe | Status |
 |-------|--------|
 | `examples/01-minimal-kernel` | **PASS** (escapes=0) |
 | `examples/02-mutation-under-load` | **PASS** (escapes=0) |
 | `examples/03-ownership-transfer` | **PASS** (escapes=0) |
-| jit / perf boundary (04+) | next |
+| `examples/04-jit-specialization` | **PASS** (escapes=0) |
+| perf-escape / soak (05+) | next |
 
-Host style notes (see `notes/host-residuals.md`): use **`let*`** not internal dependent `define`; use **`while`** not deep recursion; size loads for 1s wall clock; **do not rely on large host hashes** (H6 ≈8 keys — use alists for multi-field stats).
+Host style notes (see `notes/host-residuals.md`): use **`let*`** carefully; prefer **literals** in helpers (H8 free-var capture); use **`while`** not deep recursion; size loads for 1s wall clock; **alist stats** not large hashes (H6); JIT counters sparse (H7).
 
 When generating code or probes, keep the denseness claim **testable** and the escape discipline **strict**.
 

@@ -20,7 +20,8 @@ Each probe is a self-contained denseness experiment.
 | 01 | [minimal-kernel](01-minimal-kernel/) | A F | **PASS** |
 | 02 | [mutation-under-load](02-mutation-under-load/) | A B F | **PASS** |
 | 03 | [ownership-transfer](03-ownership-transfer/) | A B C F | **PASS** |
-| 04 | jit-specialization (planned) | A D F | planned |
+| 04 | [jit-specialization](04-jit-specialization/) | A B D F C | **PASS** |
+| 05 | perf-escape / soak (planned) | E F | planned |
 
 ## Phase map (aligned with README)
 
@@ -29,5 +30,5 @@ Each probe is a self-contained denseness experiment.
 | **1** | 01 | Pure-Aura kernels + baseline metrology — **landed** |
 | **2** | 02 | Mutation / rebind under controlled load — **landed** |
 | **3** | 03 | Ownership / AST integrity under alloc + rebind — **landed** |
-| **4** | 04… | JIT specialization / controlled performance \(E\) |
-| **5** | … | Soak + denseness report |
+| **4** | 04 | Pure-Aura specialization under load — **landed** |
+| **5** | 05… | Controlled performance \(E\) + soak + denseness judgment |

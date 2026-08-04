@@ -55,3 +55,17 @@ Format:
 - **Impact on probes:** Metrology must not use a large process hash for stats. `hephaestus-measure` stores counters in an **alist** (`*heph-stats*`) instead.
 - **Upstream or local fix:** local alist metrology; upstream hash growth if desired.
 - **Status:** mitigated (measure module → alist)
+
+## H7 — Compile / JIT dirty & stats surfaces sparse
+
+- **Observed:** After pure-Aura `mutate:rebind` specialization, `compile:block-dirty-count` stays 0; `compile:jit-stats` / `stats:get "compile:jit-stats"` often empty; `hot-swap:fn` returned `#f` in smoke tests.
+- **Impact on probes:** Axis D denseness is measured via **correctness under load after algorithmic rebind**, not via host JIT counter deltas. Host may still JIT underneath without exposing counters.
+- **Upstream or local fix:** denseness claim does not depend on counters; richer JIT observability is optional host improvement.
+- **Status:** mitigated (probe design) / open (host observability)
+
+## H8 — Free-var capture from `let*` into internal `define` helpers
+
+- **Observed:** Helpers defined with `(define (f) … N …)` inside a `let*` that binds `N` can see `N` as 0/unusable at call time in some host configurations (map-load returned 0 until literals were inlined).
+- **Impact on probes:** Prefer **literals** or globals for hot helpers; avoid relying on free capture of let*-locals in denseness kernels.
+- **Upstream or local fix:** local probe style.
+- **Status:** mitigated (probe style)
