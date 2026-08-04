@@ -1,0 +1,15 @@
+# Build / local
+build/
+*.o
+*.a
+*.so
+*.dylib
+.DS_Store
+
+# Aura / local env
+.env
+.env.*
+*.log
+
+# Notes / generated reports (keep tracked intentionally; uncomment if needed)
+# notes/last-run-report.md
