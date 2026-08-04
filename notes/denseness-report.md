@@ -2,13 +2,22 @@
 
 **Status**: Project initialized. No denseness judgment yet.
 
+**Theory:** [aura-unify.md](aura-unify.md) (Aura Unify 总论 + span 程序)  
+**Prior span:** `../aether/notes/denseness-report.md` — \(S_{\mathrm{Aether}}\) practically dense (reference only; not re-claimed here)
+
 ## Claim under test
 
 On \(S_{\mathrm{Hephaestus}}\), \(V_A\) is dense for the evolvable / tunable core of performance-critical numerical and systems kernels.
 
+\[
+P \approx A \oplus E,\quad A \in V_A
+\]
+
+Hephaestus does **not** claim denseness over all of \(S_{\mathrm{practical}}\) or over \(S_{\mathrm{Aether}}\).
+
 ## Current phase
 
-Phase 0 — Initialization complete. Phase 1 (minimal pure-Aura kernels + baseline metrology) not yet started.
+Phase 0 — Initialization complete (docs + scaffold). Phase 1 (minimal pure-Aura kernels + baseline metrology) not yet started.
 
 ## Metrics (to be filled)
 

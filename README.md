@@ -3,7 +3,7 @@
 **Performance / Numerical / Systems Kernel denseness probe on Aura — the second concrete span of Aura Unify.**
 
 Hephaestus is not a general-purpose numerical library and not a reimplementation of high-performance runtimes.
-It is the second **concrete span project** of [Aura Unify](https://github.com/cybrid-systems/aura):
+It is the second **concrete span project** of [Aura Unify](notes/aura-unify.md):
 an empirical test of whether Aura’s native space \(V_A\) can densely cover the
 high-performance, numerical, and systems-kernel region of practical software.
 
@@ -12,6 +12,8 @@ high-performance, numerical, and systems-kernel region of practical software.
 > Hephaestus asks whether the same basis remains dense when the primary
 > computational objects are **hot paths, kernels, memory-bound loops,
 > ownership under concurrent mutation, and performance-critical code**.
+
+**Read first (theory):** [`notes/aura-unify.md`](notes/aura-unify.md) — Aura Unify 总论（语义空间、span 程序、与 Aether / 本仓的关系）。
 
 ## The subspace Hephaestus claims: \(S_{\mathrm{Hephaestus}}\)
 
@@ -86,18 +88,30 @@ Invariants we care about:
 
 | Layer | Owner | Role |
 |-------|--------|------|
-| Runtime, typed mutation, ownership, JIT, fibers, arenas | Aura | Basis |
+| Runtime, typed mutation, ownership, JIT, fibers, arenas | Aura (`../aura-grok`) | Basis \(V_A\) |
 | Thin stdlib surfaces (`mutate`, `query`, `hot-update`, `workspace`, ownership helpers, …) | Aura | Callable operators |
-| Agent closed-loop denseness evidence | [Aether](https://github.com/cybrid-systems/aether) | First span (Dim 1+2) |
+| Agent closed-loop denseness evidence | [Aether](../aether) (`../aether`) | First span (Dim 1+2) — *practically dense* on \(S_{\mathrm{Aether}}\) |
 | **Performance / numerical / systems-kernel denseness evidence** | **Hephaestus** | Second span |
 
 Hephaestus **composes** Aura surfaces. It does not fork the engine.
+It **does not re-prove** Aether’s agent subspace; it pressure-tests the next high-leverage region under the same Unify discipline (escape log, denseness report, pure-Aura preference on the evolvable core).
 
-Local development is expected against an Aura checkout:
+Local development is expected against an Aura checkout (default `../aura-grok` via `scripts/run-aura.sh`):
 
 ```bash
 ./scripts/run-aura.sh examples/01-minimal-kernel/main.aura
 ```
+
+### Documents
+
+| Doc | Purpose |
+|-----|---------|
+| [`notes/aura-unify.md`](notes/aura-unify.md) | Aura Unify theory + span program |
+| [`notes/denseness-report.md`](notes/denseness-report.md) | Evidence & judgment on \(S_{\mathrm{Hephaestus}}\) |
+| [`notes/escape-log.md`](notes/escape-log.md) | Required log of leaves from \(V_A\) |
+| [`notes/host-residuals.md`](notes/host-residuals.md) | Host/packaging issues (not denseness failures) |
+| [`prompts/GROK.md`](prompts/GROK.md) | Living agent prompt |
+| [`../aether/notes/denseness-report.md`](../aether/notes/denseness-report.md) | Prior span denseness judgment |
 
 ## Practical denseness criteria (tunable)
 
@@ -129,6 +143,7 @@ hephaestus/
 │   ├── _template/
 │   └── 01-… (first probes)
 ├── notes/
+│   ├── aura-unify.md        # Unify theory (read first)
 │   ├── escape-log.md
 │   ├── denseness-report.md
 │   └── host-residuals.md
