@@ -144,7 +144,8 @@ hephaestus/
 │   └── README.md
 ├── examples/
 │   ├── _template/
-│   └── 01-minimal-kernel/       # Phase 1 denseness probe
+│   ├── 01-minimal-kernel/       # Phase 1 denseness probe
+│   └── 02-mutation-under-load/  # Phase 2 denseness probe
 ├── notes/
 │   ├── aura-unify.md        # Unify theory (read first)
 │   ├── escape-log.md
