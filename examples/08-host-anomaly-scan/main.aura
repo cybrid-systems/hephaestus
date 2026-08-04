@@ -1,0 +1,163 @@
+; examples/08-host-anomaly-scan/main.aura
+;
+; Host residual scanner — documents Aura host anomalies for upstream issues.
+; Not a denseness failure: PASS means scan completed with honest reports.
+;
+; Anomalies checked:
+;   A-hash: (hash) + hash-set! beyond capacity ~8 silently drops keys
+;   A-time: short workload often sees elapsed=0 (1s wall clock)
+;   A-fiber: fiber:spawn may return -1 (unusable concurrent denseness)
+;
+; Run: ./scripts/run-aura.sh examples/08-host-anomaly-scan/main.aura
+
+(require "hephaestus-min" all:)
+
+(heph:stats-reset!)
+
+(display "=== Hephaestus 08-host-anomaly-scan ===")
+(newline)
+
+(define anomaly-count 0)
+
+; ── A-hash: FlatHashTable capacity / silent drop ──
+(define h (hash))
+(define i 0)
+(define hash-ok 0)
+(define hash-fail 0)
+(while (lambda () (< i 16))
+  (lambda ()
+    (let ((k
+            (cond ((= i 0) "k0") ((= i 1) "k1") ((= i 2) "k2") ((= i 3) "k3")
+                  ((= i 4) "k4") ((= i 5) "k5") ((= i 6) "k6") ((= i 7) "k7")
+                  ((= i 8) "k8") ((= i 9) "k9") ((= i 10) "k10") ((= i 11) "k11")
+                  ((= i 12) "k12") ((= i 13) "k13") ((= i 14) "k14")
+                  (else "k15"))))
+      (hash-set! h k i)
+      (if (equal? (hash-ref h k 'missing) i)
+        (set! hash-ok (+ hash-ok 1))
+        (set! hash-fail (+ hash-fail 1)))
+      (set! i (+ i 1)))))
+
+(display "A-hash: ok=")
+(display hash-ok)
+(display " fail=")
+(display hash-fail)
+(newline)
+(if (> hash-fail 0)
+  (begin
+    (set! anomaly-count (+ anomaly-count 1))
+    (display "HOST_ANOMALY id=A-hash residual=H6")
+    (newline)
+    (display "  detail: hash-set! silent drop after ~8 keys (no resize)")
+    (newline)
+    (display "  file: src/compiler/evaluator_primitives_vector.cpp hash/hash-set!")
+    (newline)
+    (display "  related: #2481 (json-parse fixed resize; language hash still fixed-8)")
+    (newline))
+  (begin
+    (display "HOST_OK id=A-hash (capacity growth works)")
+    (newline)))
+
+; multi-key literal
+(define h2 (hash "a" 1 "b" 2 "c" 3 "d" 4 "e" 5 "f" 6 "g" 7 "h" 8 "i" 9 "j" 10))
+(define lit-i (hash-ref h2 "i" "MISSING"))
+(define lit-j (hash-ref h2 "j" "MISSING"))
+(define lit-a (hash-ref h2 "a" "MISSING"))
+(display "A-hash-literal: a=")
+(display lit-a)
+(display " i=")
+(display lit-i)
+(display " j=")
+(display lit-j)
+(newline)
+(if (or (equal? lit-i "MISSING") (equal? lit-j "MISSING") (not (equal? lit-a 1)))
+  (begin
+    (set! anomaly-count (+ anomaly-count 1))
+    (display "HOST_ANOMALY id=A-hash-literal residual=H6")
+    (newline)
+    (display "  detail: (hash k v ...) drops keys beyond capacity 8")
+    (newline))
+  (begin
+    (display "HOST_OK id=A-hash-literal")
+    (newline)))
+
+; ── A-time: 1s resolution ──
+(define t0 (current-time))
+(let ((j 0) (s 0))
+  (while (lambda () (< j 50000))
+    (lambda ()
+      (set! s (+ s j))
+      (set! j (+ j 1)))))
+(define t1 (current-time))
+(define elapsed (- t1 t0))
+(display "A-time: elapsed_s=")
+(display elapsed)
+(display " after ~50k loop")
+(newline)
+(if (= elapsed 0)
+  (begin
+    (set! anomaly-count (+ anomaly-count 1))
+    (display "HOST_ANOMALY id=A-time residual=H2")
+    (newline)
+    (display "  detail: current-time is whole seconds; short work reports 0")
+    (newline)
+    (display "  ask: current-time-ms or monotonic-ms host primitive")
+    (newline))
+  (begin
+    (display "HOST_OK id=A-time (elapsed>0 on this host/load)")
+    (newline)))
+
+; ── A-fiber ──
+(define fiber-r
+  (try (fiber:spawn (lambda () 1)) (catch (e) 'err)))
+(display "A-fiber: fiber:spawn => ")
+(write fiber-r)
+(newline)
+(if (or (eq? fiber-r 'err) (and (number? fiber-r) (< fiber-r 0)))
+  (begin
+    (set! anomaly-count (+ anomaly-count 1))
+    (display "HOST_ANOMALY id=A-fiber residual=H9")
+    (newline)
+    (display "  detail: fiber:spawn unusable for denseness concurrent path")
+    (newline)
+    (display "  note: Aether uses sequential-yield fanout as PASS path")
+    (newline))
+  (begin
+    (display "HOST_OK id=A-fiber")
+    (newline)))
+
+; ── Core denseness still healthy ──
+(define installed
+  (heph:install-source "(define kscale (lambda (x) (* x 2)))"))
+(define core-ok #f)
+(if installed
+  (begin
+    (define r (heph:rebind-safe "kscale" "(lambda (x) (* x 3))" "anom-triple"))
+    (set! core-ok
+      (and (eq? (heph:alist-ref ":ok" r #f) #t)
+           (= (kscale 7) 21)
+           (heph:own-ok?))))
+  #f)
+
+(display "core denseness ok=")
+(display core-ok)
+(display " anomaly-count=")
+(display anomaly-count)
+(newline)
+(display "stats: ")
+(write (heph:stats-alist))
+(newline)
+
+; Scan PASS if core denseness holds; anomalies are reported not fatal.
+(if (and installed core-ok)
+  (begin
+    (display "PASS: host anomaly scan complete (core denseness intact)")
+    (newline)
+    (display "RESULT pass example=08-host-anomaly-scan anomalies=")
+    (display anomaly-count)
+    (newline))
+  (begin
+    (display "FAIL: core denseness broken during anomaly scan")
+    (newline)
+    (display "RESULT fail example=08-host-anomaly-scan")
+    (newline)))

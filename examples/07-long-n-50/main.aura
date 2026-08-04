@@ -1,0 +1,118 @@
+; examples/07-long-n-50/main.aura
+;
+; Enhancement: longer pure-Aura soak N=50 (axes A B C D F).
+; Same pattern as 06, larger round count.
+;
+; Run: ./scripts/run-aura.sh examples/07-long-n-50/main.aura
+
+(require "hephaestus-min" all:)
+
+(heph:stats-reset!)
+
+(display "=== Hephaestus 07-long-n-50 ===")
+(newline)
+
+(define N-rounds 50)
+
+(define installed
+  (heph:install-source "(define kscale (lambda (x) (* x 2)))"))
+
+(if (not installed)
+  (begin
+    (display "FAIL: install")
+    (newline)
+    (display "RESULT fail example=07-long-n-50")
+    (newline))
+  (begin
+    (define (run-load)
+      (let ((k 0) (last 0))
+        (while (lambda () (< k 60))
+          (lambda ()
+            (let ((i 1) (acc 0))
+              (while (lambda () (<= i 96))
+                (lambda ()
+                  (set! acc (+ acc (kscale i)))
+                  (set! i (+ i 1))))
+              (set! last acc)
+              (set! k (+ k 1)))))
+        last))
+
+    (define (closed factor)
+      (/ (* factor (* 96 97)) 2))
+
+    (define (body-for factor)
+      (cond ((= factor 2) "(lambda (x) (* x 2))")
+            ((= factor 3) "(lambda (x) (* x 3))")
+            ((= factor 5) "(lambda (x) (* x 5))")
+            (else "(lambda (x) (* x 2))")))
+
+    (define (factor-for round)
+      (let ((m (modulo round 3)))
+        (cond ((= m 0) 2)
+              ((= m 1) 3)
+              (else 5))))
+
+    (define round 0)
+    (define fail-count 0)
+    (define own-fail 0)
+    (define rebind-fail 0)
+
+    (while (lambda () (< round N-rounds))
+      (lambda ()
+        (let* ((fac (factor-for round))
+               (r (heph:rebind-safe "kscale" (body-for fac) "soak50"))
+               (r-ok (eq? (heph:alist-ref ":ok" r #f) #t))
+               (sum (run-load))
+               (want (closed fac))
+               (sum-ok (and (number? sum) (number? want) (= sum want)))
+               (sample-ok (= (kscale 7) (* fac 7)))
+               (chk (heph:own-check))
+               (own-ok (eq? (heph:alist-ref ":all-ok" chk #f) #t)))
+          (if (not r-ok) (set! rebind-fail (+ rebind-fail 1)) #f)
+          (if (not (and sum-ok sample-ok))
+            (begin
+              (set! fail-count (+ fail-count 1))
+              (heph:stats-bump! "correctness_fail"))
+            (begin
+              (heph:stats-bump! "correctness_ok")
+              (heph:stats-bump! "kernels_run")))
+          (if (not own-ok)
+            (begin
+              (set! own-fail (+ own-fail 1))
+              (heph:stats-bump! "ownership_fail"))
+            (heph:stats-bump! "ownership_ok"))
+          (set! round (+ round 1)))))
+
+    (display "rounds=")
+    (display N-rounds)
+    (display " fail=")
+    (display fail-count)
+    (display " own-fail=")
+    (display own-fail)
+    (display " rebind-fail=")
+    (display rebind-fail)
+    (display " escapes=")
+    (display (heph:escape-count))
+    (newline)
+    (display "stats: ")
+    (write (heph:stats-alist))
+    (newline)
+
+    (define all-ok
+      (and (= fail-count 0)
+           (= own-fail 0)
+           (= rebind-fail 0)
+           (= (heph:escape-count) 0)
+           (heph:own-ok?)))
+
+    (if all-ok
+      (begin
+        (display "PASS: soak N=50 rebind+load+own (escapes=0)")
+        (newline)
+        (display "RESULT pass example=07-long-n-50 escapes=0 rounds=50")
+        (newline))
+      (begin
+        (display "FAIL: soak N=50")
+        (newline)
+        (display "RESULT fail example=07-long-n-50")
+        (newline)))))

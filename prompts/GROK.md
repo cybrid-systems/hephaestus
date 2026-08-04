@@ -81,9 +81,12 @@ Rollback (if needed)      →  Specialize / Bind
 | `examples/03-ownership-transfer` | **PASS** |
 | `examples/04-jit-specialization` | **PASS** |
 | `examples/05-perf-escape-boundary` | **PASS** (core \(E\)=0, edge metered) |
-| `examples/06-long-n-soak` | **PASS** N=25 escapes=0 |
+| `examples/06-long-n-soak` | **PASS** N=25 |
+| `examples/07-long-n-50` | **PASS** N=50 |
+| `examples/08-host-anomaly-scan` | **PASS** (HOST_ANOMALY lines; core OK) |
 
-**Next (optional):** concurrent fiber mutation, longer soak, SIMD/pin edges — only if they extend the denseness claim.
+**Upstream Aura issues:** #2654 hash, #2655 clock, #2656 fiber:spawn.  
+**Next (optional):** concurrent fiber denseness after #2656; SIMD/pin edges; overnight harness.
 
 Host style notes (see `notes/host-residuals.md`): prefer **literals** in helpers (H8); **`while`** not deep recursion; **alist stats** (H6); JIT counters sparse (H7); every new escape → `notes/escape-log.md`.
 

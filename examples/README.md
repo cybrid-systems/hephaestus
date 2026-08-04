@@ -23,6 +23,8 @@ Each probe is a self-contained denseness experiment.
 | 04 | [jit-specialization](04-jit-specialization/) | A B D F C | **PASS** |
 | 05 | [perf-escape-boundary](05-perf-escape-boundary/) | A B C E F | **PASS** (core \(E\)=0, edge metered) |
 | 06 | [long-n-soak](06-long-n-soak/) | A B C D F | **PASS** N=25 |
+| 07 | [long-n-50](07-long-n-50/) | A B C D F | **PASS** N=50 |
+| 08 | [host-anomaly-scan](08-host-anomaly-scan/) | host | **PASS** (reports `HOST_ANOMALY`; core denseness intact) |
 
 ## Phase map (aligned with README)
 
@@ -33,3 +35,4 @@ Each probe is a self-contained denseness experiment.
 | **3** | 03 | Ownership / AST integrity under alloc + rebind — **landed** |
 | **4** | 04 | Pure-Aura specialization under load — **landed** |
 | **5** | 05–06 | Controlled \(E\) boundary + soak + **denseness judgment** — **landed** |
+| **5+** | 07–08 | N=50 soak + host anomaly scan / upstream issues — **landed** |

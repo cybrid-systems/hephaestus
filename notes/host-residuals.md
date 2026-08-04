@@ -25,8 +25,8 @@ Format:
 
 - **Observed:** Only `current-time` (Unix seconds) available; no ms/ns/monotonic primitive in host inventory used here.
 - **Impact on probes:** Metrology needs large enough loads (`elapsed_s >= 1`) for meaningful ops/s; short kernels report `ops_per_s = 0`.
-- **Upstream or local fix:** Use sized loads in Phase 1; finer clock would improve axis F without leaving \(V_A\) if added as a pure host prim.
-- **Status:** mitigated (workload sizing)
+- **Upstream or local fix:** sized loads locally; **filed** [aura#2655](https://github.com/cybrid-systems/aura/issues/2655) (`current-time-ms` / `monotonic-ms`).
+- **Status:** mitigated (workload sizing) / **upstream open #2655**
 
 ## H3 — CLI reads program from stdin only
 
@@ -53,8 +53,9 @@ Format:
 
 - **Observed:** Multi-entry `(hash k v …)` literals drop later keys. Even sequential `hash-set!` on a fresh `(hash)` only retains ~8 keys reliably (`ok-keys=8` in probe); further sets miss on hash-ref.
 - **Impact on probes:** Metrology must not use a large process hash for stats. `hephaestus-measure` stores counters in an **alist** (`*heph-stats*`) instead.
-- **Upstream or local fix:** local alist metrology; upstream hash growth if desired.
-- **Status:** mitigated (measure module → alist)
+- **Upstream or local fix:** local alist metrology; **filed** [aura#2654](https://github.com/cybrid-systems/aura/issues/2654) (language `hash` / `hash-set!` resize; sibling of closed #2481 json-parse).
+- **Status:** mitigated (measure module → alist) / **upstream open #2654**
+- **Repro probe:** `examples/08-host-anomaly-scan` (`HOST_ANOMALY id=A-hash`)
 
 ## H7 — Compile / JIT dirty & stats surfaces sparse
 
@@ -65,7 +66,15 @@ Format:
 
 ## H8 — Free-var capture from `let*` into internal `define` helpers
 
-- **Observed:** Helpers defined with `(define (f) … N …)` inside a `let*` that binds `N` can see `N` as 0/unusable at call time in some host configurations (map-load returned 0 until literals were inlined).
+- **Observed:** Helpers defined with `(define (f) … N …)` inside a `let*` that binds `N` can see `N` as 0/unusable at call time in some host configurations (map-load returned 0 until literals were inlined). Not always reproducible in minimal repros.
 - **Impact on probes:** Prefer **literals** or globals for hot helpers; avoid relying on free capture of let*-locals in denseness kernels.
-- **Upstream or local fix:** local probe style.
+- **Upstream or local fix:** local probe style; file separate issue if a minimal stable repro appears.
 - **Status:** mitigated (probe style)
+
+## H9 — `fiber:spawn` returns -1 (concurrent denseness blocked)
+
+- **Observed:** `(fiber:spawn (lambda () 1))` → `-1` under Hephaestus denseness runner env.
+- **Impact on probes:** Cannot denseness-test real concurrent mutation; sequential rebind soak only.
+- **Upstream or local fix:** **filed** [aura#2656](https://github.com/cybrid-systems/aura/issues/2656); Aether sequential-yield fanout remains PASS path.
+- **Status:** **upstream open #2656**
+- **Repro probe:** `examples/08-host-anomaly-scan` (`HOST_ANOMALY id=A-fiber`)
