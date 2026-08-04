@@ -1,0 +1,14 @@
+;; Hephaestus probe template
+;; Copy this directory to examples/NN-name/ and fill in the experiment.
+
+(display "Hephaestus probe template — replace with real kernel denseness experiment")
+(newline)
+
+;; Suggested structure:
+;; 1. Bind / specialize a pure-Aura kernel
+;; 2. Run under controlled load
+;; 3. Observe metrics
+;; 4. Perform a safe mutation / rebind
+;; 5. Verify correctness + performance envelope
+;; 6. Rollback path (if testing)
+;; 7. Report escape count and denseness-relevant numbers
