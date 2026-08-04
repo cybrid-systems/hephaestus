@@ -72,15 +72,16 @@ Rollback (if needed)      →  Specialize / Bind
 
 ## Current phase goal
 
-**Phase 1–2 landed;** next is Phase 3 ownership / concurrent mutation.
+**Phase 1–3 landed;** next is Phase 4 (JIT specialization / performance \(E\)).
 
 | Probe | Status |
 |-------|--------|
 | `examples/01-minimal-kernel` | **PASS** (escapes=0) |
 | `examples/02-mutation-under-load` | **PASS** (escapes=0) |
-| ownership-transfer (03) | next |
+| `examples/03-ownership-transfer` | **PASS** (escapes=0) |
+| jit / perf boundary (04+) | next |
 
-Host style notes (see `notes/host-residuals.md`): use **`let*`** not internal dependent `define`; use **`while`** not deep recursion; size loads for 1s wall clock.
+Host style notes (see `notes/host-residuals.md`): use **`let*`** not internal dependent `define`; use **`while`** not deep recursion; size loads for 1s wall clock; **do not rely on large host hashes** (H6 ≈8 keys — use alists for multi-field stats).
 
 When generating code or probes, keep the denseness claim **testable** and the escape discipline **strict**.
 

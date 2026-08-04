@@ -1,0 +1,82 @@
+; lib/hephaestus-own.aura — Axis C: ownership / AST integrity helpers
+;
+; (require "hephaestus-own" all:)
+;
+; Surfaces used (all pure host / Aura — no foreign kernels):
+;   (ast:validate-ownership)  → alist with :pass
+;   (ast:validate-nodes)      → alist with :pass
+;   (ast:validate-post-restore)
+;   (mutate:safety-snapshot)  → boundary / quota signals
+;
+; pin-stable-refs requires concrete stable-ref handles; Phase 3a denseness
+; measures validate-ownership across rebind + alloc pressure instead.
+
+(export heph:alist-get
+        heph:ownership-pass?
+        heph:nodes-pass?
+        heph:own-check
+        heph:safety-alist
+        heph:own-ok?
+        heph:record-own!)
+
+(require "std/mutate" all:)
+(require "hephaestus-measure" all:)
+
+(define (heph:alist-get key lst default)
+  (let loop ((ys lst))
+    (cond ((null? ys) default)
+          ((not (pair? (car ys))) (loop (cdr ys)))
+          ((equal? (car (car ys)) key) (cdr (car ys)))
+          (else (loop (cdr ys))))))
+
+(define (heph:ownership-pass?)
+  (try
+    (let ((v (ast:validate-ownership)))
+      (cond
+        ((eq? v #t) #t)
+        ((eq? v #f) #f)
+        ((pair? v) (eq? (heph:alist-get ":pass" v #f) #t))
+        (else #f)))
+    (catch (e) #f)))
+
+(define (heph:nodes-pass?)
+  (try
+    (let ((v (ast:validate-nodes)))
+      (cond
+        ((eq? v #t) #t)
+        ((eq? v #f) #f)
+        ((pair? v) (eq? (heph:alist-get ":pass" v #f) #t))
+        (else #f)))
+    (catch (e) #f)))
+
+; Returns alist: :ownership :nodes :boundary :quota :all-ok
+(define (heph:own-check)
+  (let* ((o (heph:ownership-pass?))
+         (n (heph:nodes-pass?))
+         (safe (heph:safety-alist))
+         (b (heph:alist-get ":boundary-safe?" safe #f))
+         (q (heph:alist-get ":quota-ok?" safe #f))
+         (all (and o n (eq? b #t) (eq? q #t))))
+    (list (cons ":ownership" o)
+          (cons ":nodes" n)
+          (cons ":boundary-safe?" b)
+          (cons ":quota-ok?" q)
+          (cons ":all-ok" all))))
+
+(define (heph:safety-alist)
+  (try
+    (mutate:safety-snapshot)
+    (catch (e)
+      (list (cons ":boundary-depth" -1)
+            (cons ":boundary-safe?" #f)
+            (cons ":quota-ok?" #f)))))
+
+(define (heph:own-ok?)
+  (eq? (heph:alist-get ":all-ok" (heph:own-check) #f) #t))
+
+; Bump measure counters if present (optional keys via stats-set/bump).
+(define (heph:record-own! check)
+  (if (eq? (heph:alist-get ":all-ok" check #f) #t)
+    (heph:stats-bump! "ownership_ok")
+    (heph:stats-bump! "ownership_fail"))
+  check)

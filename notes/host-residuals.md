@@ -48,3 +48,10 @@ Format:
 - **Impact on probes:** Hot kernels use **`while`**, not deep recursion.
 - **Upstream or local fix:** local kernel style.
 - **Status:** mitigated (kernel style)
+
+## H6 — FlatHashTable capacity ≈ 8 keys
+
+- **Observed:** Multi-entry `(hash k v …)` literals drop later keys. Even sequential `hash-set!` on a fresh `(hash)` only retains ~8 keys reliably (`ok-keys=8` in probe); further sets miss on hash-ref.
+- **Impact on probes:** Metrology must not use a large process hash for stats. `hephaestus-measure` stores counters in an **alist** (`*heph-stats*`) instead.
+- **Upstream or local fix:** local alist metrology; upstream hash growth if desired.
+- **Status:** mitigated (measure module → alist)

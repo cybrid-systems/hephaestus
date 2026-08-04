@@ -1,0 +1,217 @@
+; examples/03-ownership-transfer/main.aura
+;
+; Phase 3 denseness probe — AST ownership + quota health across
+; alloc pressure, kernel rebind, and snapshot restore.
+;
+; Axes: A (kernel) + B (mutation) + C (ownership) + F (metrology)
+;
+; Scenario:
+;   1. Install pure-Aura kscale; baseline ownership/nodes/quota
+;   2. Alloc wave + load using kscale; ownership still pass
+;   3. Rebind kscale under post-alloc heap; ownership + correctness
+;   4. Bad rebind → restore; ownership + nodes + post-restore path
+;
+; Escapes: 0 (no FFI / pin-buffer / foreign kernels)
+;
+; Run: ./scripts/run-aura.sh examples/03-ownership-transfer/main.aura
+
+(require "hephaestus-min" all:)
+
+(heph:stats-reset!)
+
+(display "=== Hephaestus 03-ownership-transfer ===")
+(newline)
+(display "heph:min-version=")
+(display heph:min-version)
+(newline)
+
+(define installed
+  (heph:install-source "(define kscale (lambda (x) (* x 2)))"))
+
+(if (not installed)
+  (begin
+    (display "FAIL: install kscale")
+    (newline)
+    (display "RESULT fail example=03-ownership-transfer")
+    (newline))
+  (let* ((N 256)
+         (reps 300)
+         (alloc-n 800)
+         (vx (make-vector N 0)))
+    (heph:fill-index! vx N 1)
+
+    (define (map-scale-sum src n)
+      (let ((i 0) (acc 0))
+        (while (lambda () (< i n))
+          (lambda ()
+            (set! acc (+ acc (kscale (vector-ref src i))))
+            (set! i (+ i 1))))
+        acc))
+
+    ; sum_i factor*(1+i) for i=0..n-1 = factor * n*(n+1)/2
+    (define (closed-sum n factor)
+      (/ (* factor (* n (+ n 1))) 2))
+
+    (define (run-load)
+      (let ((k 0) (last 0))
+        (while (lambda () (< k reps))
+          (lambda ()
+            (set! last (map-scale-sum vx N))
+            (set! k (+ k 1))))
+        last))
+
+    ; Transient alloc wave (vectors not retained long-term).
+    (define (alloc-wave count)
+      (let ((i 0) (acc 0))
+        (while (lambda () (< i count))
+          (lambda ()
+            (let ((v (make-vector 64 i)))
+              (set! acc (+ acc (vector-ref v 0)))
+              (set! i (+ i 1)))))
+        acc))
+
+    ; ── Baseline ──
+    (let* ((c0 (heph:record-own! (heph:own-check)))
+           (base-ok (and (eq? (heph:alist-ref ":all-ok" c0 #f) #t)
+                         (heph:check-eq (kscale 7) 14))))
+      (display "C0 baseline own-check: ")
+      (write c0)
+      (newline)
+      (display "C0 base-ok=")
+      (display base-ok)
+      (display " kscale(7)=")
+      (display (kscale 7))
+      (newline)
+
+      ; ── Alloc wave + load (double) ──
+      (let* ((wave (alloc-wave alloc-n))
+             (timed (heph:time-call run-load (* reps N)))
+             (sum (heph:alist-ref ":result" timed 0))
+             (load-ok (heph:check-eq sum (closed-sum N 2)))
+             (c1 (heph:record-own! (heph:own-check)))
+             (c1-ok (eq? (heph:alist-ref ":all-ok" c1 #f) #t)))
+        (display "C1 wave-acc=")
+        (display wave)
+        (display " load: ")
+        (write timed)
+        (newline)
+        (display "C1 load-ok=")
+        (display load-ok)
+        (display " own-ok=")
+        (display c1-ok)
+        (newline)
+        (display "C1 own-check: ")
+        (write c1)
+        (newline)
+
+        ; ── Rebind under post-alloc pressure ──
+        (let* ((wave2 (alloc-wave alloc-n))
+               (r (heph:rebind-safe "kscale" "(lambda (x) (* x 3))" "own-to-triple"))
+               (r-ok (eq? (heph:alist-ref ":ok" r #f) #t))
+               (c2 (heph:record-own! (heph:own-check)))
+               (c2-ok (eq? (heph:alist-ref ":all-ok" c2 #f) #t))
+               (post (heph:time-call run-load (* reps N)))
+               (post-sum (heph:alist-ref ":result" post 0))
+               (post-ok (and (heph:check-eq post-sum (closed-sum N 3))
+                             (heph:check-eq (kscale 7) 21))))
+          (display "C2 wave2-acc=")
+          (display wave2)
+          (newline)
+          (display "C2 rebind: ")
+          (write r)
+          (newline)
+          (display "C2 own-check: ")
+          (write c2)
+          (newline)
+          (display "C2 post-load: ")
+          (write post)
+          (newline)
+          (display "C2 r-ok=")
+          (display r-ok)
+          (display " c2-ok=")
+          (display c2-ok)
+          (display " post-ok=")
+          (display post-ok)
+          (display " kscale(7)=")
+          (display (kscale 7))
+          (newline)
+
+          ; ── Bad rebind + restore; ownership must survive ──
+          (let* ((snap (heph:snapshot "own-before-bad"))
+                 (bad (heph:rebind-safe "kscale" "(lambda (x) (* x 99))" "own-bad"))
+                 (bad-ok (eq? (heph:alist-ref ":ok" bad #f) #t))
+                 (poison (kscale 7))
+                 (c-poison (heph:record-own! (heph:own-check)))
+                 (restored (heph:restore snap))
+                 (c3 (heph:record-own! (heph:own-check)))
+                 (after (kscale 7))
+                 (after-sum (run-load))
+                 (r3-ok (and bad-ok
+                             restored
+                             (= poison 693)
+                             (heph:check-eq after 21)
+                             (heph:check-eq after-sum (closed-sum N 3))
+                             (eq? (heph:alist-ref ":all-ok" c-poison #f) #t)
+                             (eq? (heph:alist-ref ":all-ok" c3 #f) #t))))
+            (display "C3 bad rebind: ")
+            (write bad)
+            (newline)
+            (display "C3 poison kscale(7)=")
+            (display poison)
+            (display " own-during-poison: ")
+            (write c-poison)
+            (newline)
+            (display "C3 restore=")
+            (display restored)
+            (display " after kscale(7)=")
+            (display after)
+            (display " after-sum=")
+            (display after-sum)
+            (newline)
+            (display "C3 own-after-restore: ")
+            (write c3)
+            (newline)
+            (display "C3 r3-ok=")
+            (display r3-ok)
+            (newline)
+
+            (display "stats: ")
+            (write (heph:stats-alist))
+            (newline)
+            (display "final own-check: ")
+            (write (heph:own-check))
+            (newline)
+
+            (let ((all-ok
+                    (and base-ok load-ok c1-ok r-ok c2-ok post-ok r3-ok
+                         (= (heph:stats-ref "correctness_fail") 0)
+                         (= (heph:stats-ref "ownership_fail") 0)
+                         (>= (heph:stats-ref "ownership_ok") 4)
+                         (= (heph:stats-ref "escapes") 0)
+                         (heph:own-ok?))))
+              (if all-ok
+                (begin
+                  (display "PASS: ownership across alloc + rebind + restore (escapes=0)")
+                  (newline)
+                  (display "RESULT pass example=03-ownership-transfer escapes=0")
+                  (newline))
+                (begin
+                  (display "FAIL: ownership denseness probe")
+                  (newline)
+                  (display "RESULT fail example=03-ownership-transfer")
+                  (newline)
+                  (display "  base-ok=")
+                  (display base-ok)
+                  (display " load-ok=")
+                  (display load-ok)
+                  (display " c1-ok=")
+                  (display c1-ok)
+                  (display " r-ok=")
+                  (display r-ok)
+                  (display " c2-ok=")
+                  (display c2-ok)
+                  (display " post-ok=")
+                  (display post-ok)
+                  (display " r3-ok=")
+                  (display r3-ok)
+                  (newline))))))))))
