@@ -5,20 +5,28 @@ Each probe is a self-contained denseness experiment.
 ## Conventions
 
 - Copy `_template/` to start a new probe: `examples/NN-short-name/`
-- Probe should be runnable via:
+- Run via:
   ```bash
   ./scripts/run-aura.sh examples/NN-short-name/main.aura
   ```
-- Prefer pure-Aura code on the critical path. Any escape must be logged in `notes/escape-log.md`.
+- Prefer pure-Aura on the critical path. Any escape → `notes/escape-log.md`.
 - Report metrics (throughput, correctness, ownership events, escape count) clearly.
+- Prefer offline probes; print a final `RESULT pass|fail example=…` line.
 
-## Probe Index (planned)
+## Probe index
 
 | # | Name | Axes | Status |
 |---|------|------|--------|
-| 01 | minimal-kernel | A F | planned |
-| 02 | mutation-under-load | A B F | planned |
+| 01 | [minimal-kernel](01-minimal-kernel/) | A F | **PASS** |
+| 02 | [mutation-under-load](02-mutation-under-load/) | A B F | **PASS** |
 | 03 | ownership-transfer | C | planned |
-| … | … | … | … |
 
-Add new probes to this table when they land.
+## Phase map (aligned with README)
+
+| Phase | Probes | Focus |
+|-------|--------|--------|
+| **1** | 01 | Pure-Aura kernels + baseline metrology — **landed** |
+| **2** | 02 | Mutation / rebind under controlled load — **landed** |
+| **3** | 03… | Ownership transfer + concurrent mutation |
+| **4** | … | Controlled performance escapes \(E\) |
+| **5** | … | Soak + denseness report |

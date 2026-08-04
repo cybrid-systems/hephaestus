@@ -1,46 +1,67 @@
 #!/usr/bin/env bash
-# Host runner for Hephaestus probes.
-# Expects an Aura checkout nearby (default: ../aura or via AURA_PATH).
+# Run a Hephaestus .aura probe against a local Aura host binary.
+#
+# Usage (from hephaestus repo root):
+#   ./scripts/run-aura.sh examples/01-minimal-kernel/main.aura
+#
+# Env overrides:
+#   AURA_BIN   path to aura binary (default: ../aura-grok/build/aura)
+#   AURA_LIB   path to Aura lib/ containing std/ (default: ../aura-grok/lib)
+#   HEPHAESTUS_LIB  path to this repo's lib/ (default: <repo>/lib)
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
 
-# Default Aura locations to try
-if [[ -z "${AURA_PATH:-}" ]]; then
-  if [[ -d "${ROOT_DIR}/../aura" ]]; then
-    export AURA_PATH="${ROOT_DIR}/../aura"
-  elif [[ -d "${ROOT_DIR}/../aura-grok" ]]; then
-    export AURA_PATH="${ROOT_DIR}/../aura-grok"
+AURA_BIN="${AURA_BIN:-$ROOT/../aura-grok/build/aura}"
+AURA_LIB="${AURA_LIB:-$ROOT/../aura-grok/lib}"
+HEPHAESTUS_LIB="${HEPHAESTUS_LIB:-$ROOT/lib}"
+
+if [[ ! -x "$AURA_BIN" ]]; then
+  # Fallbacks: sibling aura checkout or PATH
+  if [[ -x "$ROOT/../aura/build/aura" ]]; then
+    AURA_BIN="$ROOT/../aura/build/aura"
+  elif command -v aura >/dev/null 2>&1; then
+    AURA_BIN="$(command -v aura)"
   else
-    echo "error: set AURA_PATH to an Aura checkout" >&2
+    echo "error: aura binary not found or not executable: $AURA_BIN" >&2
+    echo "  build aura-grok or set AURA_BIN" >&2
     exit 1
   fi
 fi
 
-export AURA_SANDBOX="${AURA_SANDBOX:-off}"
-export AURA_PIPELINE_STRICT="${AURA_PIPELINE_STRICT:-0}"
-
-# Prefer the Aura binary from the checkout
-AURA_BIN="${AURA_PATH}/build/aura"
-if [[ ! -x "${AURA_BIN}" ]]; then
-  AURA_BIN="$(command -v aura || true)"
+if [[ ! -d "$AURA_LIB/std" ]]; then
+  echo "error: Aura stdlib not found under: $AURA_LIB/std" >&2
+  echo "  set AURA_LIB to the directory that contains std/" >&2
+  exit 1
 fi
 
-if [[ -z "${AURA_BIN}" || ! -x "${AURA_BIN}" ]]; then
-  echo "error: cannot find aura binary (looked in ${AURA_PATH}/build/aura)" >&2
+if [[ ! -d "$HEPHAESTUS_LIB" ]]; then
+  echo "error: Hephaestus lib not found: $HEPHAESTUS_LIB" >&2
   exit 1
 fi
 
 if [[ $# -lt 1 ]]; then
-  echo "usage: $0 <probe.aura> [args...]" >&2
+  echo "usage: $0 <probe.aura>" >&2
   exit 1
 fi
 
-PROBE="$1"
-shift
+SRC="$1"
+if [[ ! -f "$SRC" ]]; then
+  echo "error: file not found: $SRC" >&2
+  exit 1
+fi
 
+# CLI denseness demos: sandbox off; pipeline strict 0 for tree-walker fallback
+# on hosts that need it (same discipline as Aether).
+export AURA_PATH="${AURA_PATH:-$AURA_LIB:$HEPHAESTUS_LIB}"
+export AURA_SANDBOX="${AURA_SANDBOX:-off}"
+export AURA_PIPELINE_STRICT="${AURA_PIPELINE_STRICT:-0}"
+
+echo "[hephaestus] AURA_BIN=${AURA_BIN}"
 echo "[hephaestus] AURA_PATH=${AURA_PATH}"
-echo "[hephaestus] running: ${PROBE}"
-exec "${AURA_BIN}" "${PROBE}" "$@"
+echo "[hephaestus] running: ${SRC}"
+
+# Host expects program on stdin (not argv).
+exec "$AURA_BIN" < "$SRC"

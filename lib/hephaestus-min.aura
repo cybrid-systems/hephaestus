@@ -1,0 +1,32 @@
+; lib/hephaestus-min.aura — Phase 1–2 facade (Axes A + B + F)
+;
+; (require "hephaestus-min" all:)
+;
+; Thin re-export of measure + kernel + mutate helpers for denseness probes.
+
+(export heph:stats heph:stats-reset! heph:stats-ref heph:stats-bump!
+        heph:stats-set! heph:stats-alist heph:alist-ref
+        heph:time-call heph:ops-per-sec
+        heph:fill-index! heph:sum-sq heph:dot heph:saxpy! heph:reduce-sum
+        heph:kernel-version heph:min-version
+        heph:closed-sum-sq heph:check-eq
+        heph:install-source heph:safety-ok? heph:snapshot heph:restore
+        heph:rebind-safe)
+
+(require "hephaestus-measure" all:)
+(require "hephaestus-kernel" all:)
+(require "hephaestus-mutate" all:)
+
+(define heph:min-version 2)
+
+; Closed form: sum_{i=0}^{n-1} i^2 = (n-1)n(2n-1)/6
+(define (heph:closed-sum-sq n)
+  (if (<= n 0)
+    0
+    (let ((m (- n 1)))
+      (/ (* m n (- (* 2 n) 1)) 6))))
+
+(define (heph:check-eq actual expected)
+  (if (and (number? actual) (number? expected) (= actual expected))
+    (begin (heph:stats-bump! "correctness_ok") #t)
+    (begin (heph:stats-bump! "correctness_fail") #f)))

@@ -1,0 +1,170 @@
+; examples/02-mutation-under-load/main.aura
+;
+; Phase 2 denseness probe — rebind a pure-Aura kernel under controlled load.
+;
+; Axes: A (kernel) + B (mutation under load) + F (metrology)
+;
+; Scenario:
+;   kscale starts as (* x 2); goal is triple (* x 3).
+;   R1: run load on double → rebind to triple → verify load + sample
+;   R2: already correct → skip-style rebind noop check (still triple after load)
+;   R3: bad rebind (* x 99) → verify fail → restore snapshot → still triple
+;
+; Run: ./scripts/run-aura.sh examples/02-mutation-under-load/main.aura
+
+(require "hephaestus-min" all:)
+
+(heph:stats-reset!)
+
+(display "=== Hephaestus 02-mutation-under-load ===")
+(newline)
+
+(define installed
+  (heph:install-source "(define kscale (lambda (x) (* x 2)))"))
+
+(if (not installed)
+  (begin
+    (display "FAIL: could not install kscale")
+    (newline)
+    (display "RESULT fail example=02-mutation-under-load")
+    (newline))
+  (let* ((N 512)
+         (reps 400)
+         (vx (make-vector N 0)))
+    (heph:fill-index! vx N 1)
+
+    ; Apply kscale elementwise into a fresh vector (pure load subject).
+    (define (map-scale! src dst n)
+      (let ((i 0))
+        (while (lambda () (< i n))
+          (lambda ()
+            (vector-set! dst i (kscale (vector-ref src i)))
+            (set! i (+ i 1))))
+        dst))
+
+    (define (sum-scaled n factor)
+      ; closed: sum_i factor*(1+i) for i in 0..n-1 = factor * (n + n*(n-1)/2)
+      ; wait: x[i]=1+i, sum factor*(1+i) = factor * sum(1+i) = factor * (n + (n*(n-1)/2))
+      ; sum_{i=0}^{n-1} (1+i) = sum_{k=1}^{n} k = n(n+1)/2
+      (/ (* factor (* n (+ n 1))) 2))
+
+    (define (run-load-sum)
+      (let ((out (make-vector N 0))
+            (k 0)
+            (last-sum 0))
+        (while (lambda () (< k reps))
+          (lambda ()
+            (map-scale! vx out N)
+            (set! last-sum (heph:reduce-sum out N))
+            (set! k (+ k 1))))
+        last-sum))
+
+    (display "installed kscale=double; sample kscale(7)=")
+    (display (kscale 7))
+    (display " (want triple=21 after R1)")
+    (newline)
+    (display "safety-ok=")
+    (display (heph:safety-ok?))
+    (newline)
+
+    ; ── R1: load on double, then rebind to triple, verify ──
+    (let* ((pre (heph:time-call run-load-sum (* reps N)))
+           (pre-sum (heph:alist-ref ":result" pre 0))
+           (pre-ok (heph:check-eq pre-sum (sum-scaled N 2)))
+           (r1 (heph:rebind-safe "kscale" "(lambda (x) (* x 3))" "r1-to-triple"))
+           (r1-ok (eq? (heph:alist-ref ":ok" r1 #f) #t))
+           (post (heph:time-call run-load-sum (* reps N)))
+           (post-sum (heph:alist-ref ":result" post 0))
+           (post-ok (and (heph:check-eq post-sum (sum-scaled N 3))
+                         (heph:check-eq (kscale 7) 21))))
+      (display "R1 pre-load (double): ")
+      (write pre)
+      (newline)
+      (display "R1 pre-ok=")
+      (display pre-ok)
+      (newline)
+      (display "R1 rebind: ")
+      (write r1)
+      (newline)
+      (display "R1 post-load (triple): ")
+      (write post)
+      (newline)
+      (display "R1 post-ok=")
+      (display post-ok)
+      (display " kscale(7)=")
+      (display (kscale 7))
+      (newline)
+
+      ; ── R2: still correct under load (no rebind needed) ──
+      (let* ((r2-sum (run-load-sum))
+             (r2-ok (and (heph:check-eq r2-sum (sum-scaled N 3))
+                         (heph:check-eq (kscale 7) 21))))
+        (display "R2 load still triple ok=")
+        (display r2-ok)
+        (display " sum=")
+        (display r2-sum)
+        (newline)
+
+        ; ── R3: bad rebind → restore ──
+        (let* ((snap (heph:snapshot "r3-before-bad"))
+               (bad (heph:rebind-safe "kscale" "(lambda (x) (* x 99))" "r3-bad"))
+               (bad-applied (eq? (heph:alist-ref ":ok" bad #f) #t))
+               (poison-sample (kscale 7))
+               (restored (heph:restore snap))
+               (after-sample (kscale 7))
+               (after-sum (run-load-sum))
+               (r3-ok (and bad-applied
+                           restored
+                           (= poison-sample 693)
+                           (heph:check-eq after-sample 21)
+                           (heph:check-eq after-sum (sum-scaled N 3)))))
+          (display "R3 bad rebind: ")
+          (write bad)
+          (newline)
+          (display "R3 poison kscale(7)=")
+          (display poison-sample)
+          (display " restore=")
+          (display restored)
+          (display " after kscale(7)=")
+          (display after-sample)
+          (display " after-sum-ok sum=")
+          (display after-sum)
+          (newline)
+          (display "R3 ok=")
+          (display r3-ok)
+          (newline)
+
+          (display "stats: ")
+          (write (heph:stats-alist))
+          (newline)
+          (display "safety-ok final=")
+          (display (heph:safety-ok?))
+          (newline)
+
+          (let ((all-ok
+                  (and pre-ok r1-ok post-ok r2-ok r3-ok
+                       (heph:safety-ok?)
+                       (= (heph:stats-ref "correctness_fail") 0)
+                       (= (heph:stats-ref "escapes") 0))))
+            (if all-ok
+              (begin
+                (display "PASS: mutation under load + rollback (escapes=0)")
+                (newline)
+                (display "RESULT pass example=02-mutation-under-load escapes=0")
+                (newline))
+              (begin
+                (display "FAIL: mutation under load denseness probe")
+                (newline)
+                (display "RESULT fail example=02-mutation-under-load")
+                (newline)
+                (display "  pre-ok=")
+                (display pre-ok)
+                (display " r1-ok=")
+                (display r1-ok)
+                (display " post-ok=")
+                (display post-ok)
+                (display " r2-ok=")
+                (display r2-ok)
+                (display " r3-ok=")
+                (display r3-ok)
+                (newline)))))))))

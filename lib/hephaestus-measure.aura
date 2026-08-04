@@ -1,0 +1,95 @@
+; lib/hephaestus-measure.aura — Axis F: metrology for denseness probes
+;
+; (require "hephaestus-measure" all:)
+;
+; Wall clock is host (current-time) in whole seconds — coarse but pure-Aura.
+; Prefer large enough loads so elapsed_s >= 1 when reporting ops/s.
+
+(export heph:stats
+        heph:stats-reset!
+        heph:stats-ref
+        heph:stats-bump!
+        heph:stats-set!
+        heph:stats-alist
+        heph:alist-ref
+        heph:time-call
+        heph:ops-per-sec)
+
+(define *heph-stats*
+  (hash "kernels_run" 0
+        "ops_total" 0
+        "correctness_ok" 0
+        "correctness_fail" 0
+        "escapes" 0
+        "last_elapsed_s" 0
+        "last_ops" 0
+        "last_result" 0))
+
+(define (heph:stats)
+  *heph-stats*)
+
+(define (heph:stats-reset!)
+  (hash-set! *heph-stats* "kernels_run" 0)
+  (hash-set! *heph-stats* "ops_total" 0)
+  (hash-set! *heph-stats* "correctness_ok" 0)
+  (hash-set! *heph-stats* "correctness_fail" 0)
+  (hash-set! *heph-stats* "escapes" 0)
+  (hash-set! *heph-stats* "last_elapsed_s" 0)
+  (hash-set! *heph-stats* "last_ops" 0)
+  (hash-set! *heph-stats* "last_result" 0)
+  *heph-stats*)
+
+(define (heph:stats-ref key)
+  (let ((v (hash-ref *heph-stats* key 0)))
+    (if (number? v) v 0)))
+
+(define (heph:stats-bump! key)
+  (let ((n (+ 1 (heph:stats-ref key))))
+    (hash-set! *heph-stats* key n)
+    n))
+
+(define (heph:stats-set! key val)
+  (hash-set! *heph-stats* key val)
+  val)
+
+(define (heph:stats-alist)
+  (list (cons "kernels_run" (heph:stats-ref "kernels_run"))
+        (cons "ops_total" (heph:stats-ref "ops_total"))
+        (cons "correctness_ok" (heph:stats-ref "correctness_ok"))
+        (cons "correctness_fail" (heph:stats-ref "correctness_fail"))
+        (cons "escapes" (heph:stats-ref "escapes"))
+        (cons "last_elapsed_s" (heph:stats-ref "last_elapsed_s"))
+        (cons "last_ops" (heph:stats-ref "last_ops"))
+        (cons "last_result" (heph:stats-ref "last_result"))))
+
+(define (heph:alist-ref key lst default)
+  (let loop ((ys lst))
+    (cond ((null? ys) default)
+          ((equal? (car (car ys)) key) (cdr (car ys)))
+          (else (loop (cdr ys))))))
+
+; Run thunk once; record wall seconds (host resolution: 1s).
+; ops: logical operation count for this run (caller-defined).
+; Returns alist: :result :elapsed_s :ops :ops_per_s
+(define (heph:time-call thunk ops)
+  (let* ((t0 (current-time))
+         (result (thunk))
+         (t1 (current-time))
+         (elapsed (if (and (number? t0) (number? t1)) (- t1 t0) 0))
+         (elapsed (if (and (number? elapsed) (>= elapsed 0)) elapsed 0))
+         (ops-n (if (number? ops) ops 0))
+         (ops-s (heph:ops-per-sec ops-n elapsed)))
+    (heph:stats-bump! "kernels_run")
+    (heph:stats-set! "ops_total" (+ (heph:stats-ref "ops_total") ops-n))
+    (heph:stats-set! "last_elapsed_s" elapsed)
+    (heph:stats-set! "last_ops" ops-n)
+    (heph:stats-set! "last_result" (if (number? result) result 0))
+    (list (cons ":result" result)
+          (cons ":elapsed_s" elapsed)
+          (cons ":ops" ops-n)
+          (cons ":ops_per_s" ops-s))))
+
+(define (heph:ops-per-sec ops elapsed)
+  (if (and (number? ops) (number? elapsed) (> elapsed 0))
+    (/ ops elapsed)
+    0))

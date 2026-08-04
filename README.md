@@ -138,10 +138,13 @@ hephaestus/
 ├── scripts/
 │   └── run-aura.sh
 ├── lib/
-│   └── (kernel helpers, ownership wrappers, metrology, …)
+│   ├── hephaestus-min.aura      # Phase-1 facade (A+F)
+│   ├── hephaestus-kernel.aura   # pure-Aura numerical kernels
+│   ├── hephaestus-measure.aura  # stats / wall-time metrology
+│   └── README.md
 ├── examples/
 │   ├── _template/
-│   └── 01-… (first probes)
+│   └── 01-minimal-kernel/       # Phase 1 denseness probe
 ├── notes/
 │   ├── aura-unify.md        # Unify theory (read first)
 │   ├── escape-log.md
@@ -178,9 +181,16 @@ Apache License 2.0 (same as Aura and Aether)
 
 ## Status
 
-**Initialized.** Phase 1 probes and denseness instrumentation are next.
+**Phase 1–2 landed.** Probes **01** (kernels + metrology) and **02** (mutation under load + rollback) both PASS with escapes=0.
+
+```bash
+./scripts/run-aura.sh examples/01-minimal-kernel/main.aura
+./scripts/run-aura.sh examples/02-mutation-under-load/main.aura
+```
 
 Hephaestus continues the constructive measurement program of Aura Unify:
 after Aether established denseness on the agent + mutation closed-loop subspace,
 we now pressure-test the same basis against the second highest-leverage region —
 performance, numerical kernels, and systems hot paths.
+
+See [`notes/denseness-report.md`](notes/denseness-report.md).

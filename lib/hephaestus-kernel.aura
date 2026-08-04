@@ -1,0 +1,60 @@
+; lib/hephaestus-kernel.aura — Axis A: pure-Aura numerical kernels
+;
+; (require "hephaestus-kernel" all:)
+;
+; Iterative (while) only — deep recursion hits host depth limits on hot paths.
+; No FFI / SIMD. Escape count for these kernels is 0 by construction.
+
+(export heph:fill-index!
+        heph:sum-sq
+        heph:dot
+        heph:saxpy!
+        heph:reduce-sum
+        heph:kernel-version)
+
+(define heph:kernel-version 1)
+
+; Fill vector v[i] = base + i for i in [0, n).
+(define (heph:fill-index! v n base)
+  (let ((i 0))
+    (while (lambda () (< i n))
+      (lambda ()
+        (vector-set! v i (+ base i))
+        (set! i (+ i 1))))
+    v))
+
+; sum_{i=0}^{n-1} i^2  (closed form n(n-1)(2n-1)/6 for verify)
+(define (heph:sum-sq n)
+  (let ((i 0) (acc 0))
+    (while (lambda () (< i n))
+      (lambda ()
+        (set! acc (+ acc (* i i)))
+        (set! i (+ i 1))))
+    acc))
+
+; Dot product of length-n vectors a, b.
+(define (heph:dot a b n)
+  (let ((i 0) (acc 0))
+    (while (lambda () (< i n))
+      (lambda ()
+        (set! acc (+ acc (* (vector-ref a i) (vector-ref b i))))
+        (set! i (+ i 1))))
+    acc))
+
+; In-place SAXPY: y[i] = alpha * x[i] + y[i]
+(define (heph:saxpy! alpha x y n)
+  (let ((i 0))
+    (while (lambda () (< i n))
+      (lambda ()
+        (vector-set! y i (+ (* alpha (vector-ref x i)) (vector-ref y i)))
+        (set! i (+ i 1))))
+    y))
+
+; Sum of vector elements [0, n).
+(define (heph:reduce-sum v n)
+  (let ((i 0) (acc 0))
+    (while (lambda () (< i n))
+      (lambda ()
+        (set! acc (+ acc (vector-ref v i)))
+        (set! i (+ i 1))))
+    acc))

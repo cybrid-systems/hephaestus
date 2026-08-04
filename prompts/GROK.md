@@ -72,8 +72,15 @@ Rollback (if needed)      →  Specialize / Bind
 
 ## Current phase goal
 
-**Phase 1:** land minimal pure-Aura numerical kernels + baseline metrology probes  
-(see README span order; start from `examples/_template/`).
+**Phase 1–2 landed;** next is Phase 3 ownership / concurrent mutation.
+
+| Probe | Status |
+|-------|--------|
+| `examples/01-minimal-kernel` | **PASS** (escapes=0) |
+| `examples/02-mutation-under-load` | **PASS** (escapes=0) |
+| ownership-transfer (03) | next |
+
+Host style notes (see `notes/host-residuals.md`): use **`let*`** not internal dependent `define`; use **`while`** not deep recursion; size loads for 1s wall clock.
 
 When generating code or probes, keep the denseness claim **testable** and the escape discipline **strict**.
 

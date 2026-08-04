@@ -1,0 +1,67 @@
+; lib/hephaestus-mutate.aura — Axis B: safe kernel rebind helpers
+;
+; (require "hephaestus-mutate" all:)
+;
+; Thin wrappers around Aura mutate / snapshot surfaces (same pattern as Aether).
+; Kernel bodies stay pure Aura strings installed into the live workspace.
+
+(export heph:install-source
+        heph:safety-ok?
+        heph:snapshot
+        heph:restore
+        heph:rebind-safe)
+
+(require "std/mutate" all:)
+
+(define (heph:install-source source)
+  (set-code source)
+  (try (begin (eval-current) #t) (catch (e) #f)))
+
+(define (heph:safety-ok?)
+  (try
+    (and (mutate:boundary-safe?) (mutate:quota-ok?))
+    (catch (e) #f)))
+
+(define (heph:snapshot tag)
+  (try
+    (let ((id (ast:snapshot tag)))
+      (if (number? id) id -1))
+    (catch (e) -1)))
+
+(define (heph:restore snap-id)
+  (if (and (number? snap-id) (>= snap-id 0))
+    (try
+      (begin
+        (ast:restore snap-id)
+        (try (eval-current) (catch (e) #f))
+        #t)
+      (catch (e) #f))
+    #f))
+
+; Returns alist: :ok :snap :mut-ok :reason
+(define (heph:rebind-safe name body summary)
+  (if (not (heph:safety-ok?))
+    (list (cons ":ok" #f)
+          (cons ":snap" -1)
+          (cons ":mut-ok" #f)
+          (cons ":reason" "boundary-or-quota"))
+    (let ((snap (heph:snapshot summary)))
+      (try (mutate:safe-yield) (catch (e) #f))
+      (let ((mut-res (try (mutate:rebind name body summary) (catch (e) #f))))
+        (if (eq? mut-res #t)
+          (let ((ev-ok (try (begin (eval-current) #t) (catch (e) #f))))
+            (if ev-ok
+              (list (cons ":ok" #t)
+                    (cons ":snap" snap)
+                    (cons ":mut-ok" #t)
+                    (cons ":reason" "applied"))
+              (begin
+                (heph:restore snap)
+                (list (cons ":ok" #f)
+                      (cons ":snap" snap)
+                      (cons ":mut-ok" #t)
+                      (cons ":reason" "eval-failed")))))
+          (list (cons ":ok" #f)
+                (cons ":snap" snap)
+                (cons ":mut-ok" #f)
+                (cons ":reason" "rebind-failed")))))))
