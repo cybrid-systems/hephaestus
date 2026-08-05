@@ -102,7 +102,10 @@ This is a **constructive denseness** judgment (runnable probes + escape accounti
 |------------|----------|--------|--------|
 | [#2654](https://github.com/cybrid-systems/aura/issues/2654) | H6 | `(hash)` / `hash-set!` grow | **fixed** — measure uses hash again |
 | [#2655](https://github.com/cybrid-systems/aura/issues/2655) | H2 | sub-second / monotonic clock | open |
-| [#2656](https://github.com/cybrid-systems/aura/issues/2656) | H9 | `fiber:spawn` positive ids | **fixed** — probe 09 concurrent rebind |
+| [#2656](https://github.com/cybrid-systems/aura/issues/2656) | H9 | `fiber:spawn` positive ids | **fixed** — probes 09–10 |
+| [#2684](https://github.com/cybrid-systems/aura/issues/2684) | H7 | compile/jit dirty empty after rebind | open |
+| [#2685](https://github.com/cybrid-systems/aura/issues/2685) | H9 caveat | top-level dual `define` spawn id alias | open |
+| [#2686](https://github.com/cybrid-systems/aura/issues/2686) | H10 | concurrent multi-name rebind crash/unbind | open (P1) |
 
 ---
 

@@ -12,9 +12,9 @@ Extends `09` (main-only rebind + fiber **readers**) to **typed rebind on worker 
 | M2 | Fiber rebind + concurrent pure fiber reader; final ×3 |
 | M3 | Concurrent same-name rebind stress; ownership sane |
 
-## Host residual **H10**
+## Host residual **H10** → [aura#2686](https://github.com/cybrid-systems/aura/issues/2686)
 
-Concurrent rebinds of **two different names from two fibers at once** can crash (`NodeView` assert) or return empty join on some hosts. Denseness **PASS path** therefore uses sequential fiber mutates for multi-name coverage; concurrent multi-mutate is out of denseness scope until host hardens.
+Concurrent rebinds of **two different names from two fibers at once** can crash (`NodeView` assert), return empty join, or leave a name unbound after “applied”. Denseness **PASS path** uses sequential fiber mutates for multi-name coverage until #2686 is fixed.
 
 Host may log `[fiber:join] WARN: workspace mutated during join` — expected.
 
