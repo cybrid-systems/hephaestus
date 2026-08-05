@@ -17,4 +17,4 @@ Host resolution: `scripts/run-aura.sh` sets `AURA_PATH` to `../aura-grok/lib:./l
 (require "hephaestus-min" all:)
 ```
 
-Timing uses host `(current-time)` (whole seconds). Size workloads so `elapsed_s >= 1` when you need ops/s.
+Timing uses host `(monotonic-ms)` (#2655). Short pure kernels can report `elapsed_ms > 0`; `heph:time-call` exposes `:elapsed_ms` and derived ops/s.

@@ -43,7 +43,7 @@ Hephaestus does **not** claim denseness over all of \(S_{\mathrm{practical}}\) o
 | [05-perf-escape-boundary](../examples/05-perf-escape-boundary/) | A B C E F | **PASS** | **0** | **≥6** (metered FFI abs) |
 | [06-long-n-soak](../examples/06-long-n-soak/) | A B C D F | **PASS** N=25 | 0 | 0 |
 | [07-long-n-50](../examples/07-long-n-50/) | A B C D F | **PASS** N=50 | 0 | 0 |
-| [08-host-anomaly-scan](../examples/08-host-anomaly-scan/) | host | **PASS** (hash/fiber OK post-fix; H2 clock optional) | 0 | 0 |
+| [08-host-anomaly-scan](../examples/08-host-anomaly-scan/) | host | **PASS** (hash/fiber OK post-fix; H2 clock fixed #2655) | 0 | 0 |
 | [09-concurrent-rebind](../examples/09-concurrent-rebind/) | A B C F | **PASS** 4-worker fanout + main rebind | 0 | 0 |
 | [10-mutate-in-fiber](../examples/10-mutate-in-fiber/) | A B C F | **PASS** rebind inside fibers (+ mut‖reader) | 0 | 0 |
 | [11-snapshot-after-fiber-mutate](../examples/11-snapshot-after-fiber-mutate/) | A B C F | **PASS** golden + pre-fiber restore after fiber rebind | 0 | 0 |
@@ -102,7 +102,7 @@ This is a **constructive denseness** judgment (runnable probes + escape accounti
 | Aura issue | Residual | Topic | Status |
 |------------|----------|--------|--------|
 | [#2654](https://github.com/cybrid-systems/aura/issues/2654) | H6 | `(hash)` / `hash-set!` grow | **fixed** — measure uses hash again |
-| [#2655](https://github.com/cybrid-systems/aura/issues/2655) | H2 | sub-second / monotonic clock | open |
+| [#2655](https://github.com/cybrid-systems/aura/issues/2655) | H2 | sub-second / monotonic clock | **closed** (prims + heph:time-call) |
 | [#2656](https://github.com/cybrid-systems/aura/issues/2656) | H9 | `fiber:spawn` positive ids | **fixed** — probes 09–10 |
 | [#2684](https://github.com/cybrid-systems/aura/issues/2684) | H7 | compile/jit dirty empty after rebind | open |
 | [#2685](https://github.com/cybrid-systems/aura/issues/2685) | H9 caveat | top-level dual `define` spawn id alias | open |

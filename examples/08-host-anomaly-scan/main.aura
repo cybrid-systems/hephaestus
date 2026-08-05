@@ -81,31 +81,40 @@
     (display "HOST_OK id=A-hash-literal")
     (newline)))
 
-; ── A-time: 1s resolution ──
-(define t0 (current-time))
+; ── A-time: sub-second metrology (#2655 / H2) ──
+; Prefer (monotonic-ms); legacy (current-time) may still be 0 on short work.
+(define t0-ms (try (monotonic-ms) (catch (e) #f)))
 (let ((j 0) (s 0))
-  (while (lambda () (< j 50000))
+  (while (lambda () (< j 200000))
     (lambda ()
       (set! s (+ s j))
       (set! j (+ j 1)))))
-(define t1 (current-time))
-(define elapsed (- t1 t0))
-(display "A-time: elapsed_s=")
-(display elapsed)
-(display " after ~50k loop")
+(define t1-ms (try (monotonic-ms) (catch (e) #f)))
+(define elapsed-ms
+  (if (and (number? t0-ms) (number? t1-ms))
+    (- t1-ms t0-ms)
+    -1))
+(display "A-time: elapsed_ms=")
+(display elapsed-ms)
+(display " after ~200k loop (monotonic-ms)")
 (newline)
-(if (= elapsed 0)
+(if (or (not (number? elapsed-ms)) (< elapsed-ms 0))
   (begin
     (set! anomaly-count (+ anomaly-count 1))
     (display "HOST_ANOMALY id=A-time residual=H2")
     (newline)
-    (display "  detail: current-time is whole seconds; short work reports 0")
+    (display "  detail: monotonic-ms missing or errored")
     (newline)
-    (display "  ask: current-time-ms or monotonic-ms host primitive")
+    (display "  ask: aura#2655 current-time-ms / monotonic-ms")
     (newline))
-  (begin
-    (display "HOST_OK id=A-time (elapsed>0 on this host/load)")
-    (newline)))
+  (if (= elapsed-ms 0)
+    (begin
+      ; Clock present but 1ms resolution did not observe this load — not H2 missing.
+      (display "HOST_OK id=A-time (monotonic-ms present; load <1ms)")
+      (newline))
+    (begin
+      (display "HOST_OK id=A-time (elapsed_ms>0 via monotonic-ms #2655)")
+      (newline))))
 
 ; ── A-fiber ──
 (define fiber-r

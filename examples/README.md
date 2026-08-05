@@ -24,7 +24,7 @@ Each probe is a self-contained denseness experiment.
 | 05 | [perf-escape-boundary](05-perf-escape-boundary/) | A B C E F | **PASS** (core \(E\)=0, edge metered) |
 | 06 | [long-n-soak](06-long-n-soak/) | A B C D F | **PASS** N=25 |
 | 07 | [long-n-50](07-long-n-50/) | A B C D F | **PASS** N=50 |
-| 08 | [host-anomaly-scan](08-host-anomaly-scan/) | host | **PASS** (hash/fiber OK after #2654/#2656; H2 clock may still anomaly) |
+| 08 | [host-anomaly-scan](08-host-anomaly-scan/) | host | **PASS** (hash/fiber OK after #2654/#2656; H2 clock fixed #2655) |
 | 09 | [concurrent-rebind](09-concurrent-rebind/) | A B C F | **PASS** fiber fanout + main rebind |
 | 10 | [mutate-in-fiber](10-mutate-in-fiber/) | A B C F | **PASS** rebind inside fibers |
 | 11 | [snapshot-after-fiber-mutate](11-snapshot-after-fiber-mutate/) | A B C F | **PASS** restore after fiber rebind |

@@ -23,10 +23,10 @@ Format:
 
 ## H2 — `(current-time)` is whole-second wall clock
 
-- **Observed:** Only `current-time` (Unix seconds) available; no ms/ns/monotonic primitive in host inventory used here.
-- **Impact on probes:** Metrology needs large enough loads (`elapsed_s >= 1`) for meaningful ops/s; short kernels report `ops_per_s = 0`.
-- **Upstream or local fix:** sized loads locally; **filed** [aura#2655](https://github.com/cybrid-systems/aura/issues/2655) (`current-time-ms` / `monotonic-ms`).
-- **Status:** mitigated (workload sizing) / **upstream open #2655**
+- **Observed (historical):** Only `current-time` (Unix seconds); short kernels reported `elapsed=0`.
+- **Impact on probes:** Metrology needed large loads (`elapsed_s >= 1`) for ops/s.
+- **Upstream fix:** [aura#2655](https://github.com/cybrid-systems/aura/issues/2655) shipped `(current-time-ms)` + `(monotonic-ms)`; `heph:time-call` now uses **monotonic-ms** (`lib/hephaestus-measure.aura`).
+- **Status:** **closed** (upstream #2655 + Hephaestus measure wired)
 
 ## H3 — CLI reads program from stdin only
 

@@ -88,9 +88,9 @@ Rollback (if needed)      →  Specialize / Bind
 | `examples/10-mutate-in-fiber` | **PASS** rebind inside fibers |
 | `examples/11-snapshot-after-fiber-mutate` | **PASS** restore after fiber rebind |
 
-**Upstream:** #2654 hash **fixed**; #2656 fiber **fixed** (09–11); #2655 clock open; #2686 concurrent multi-name rebind.  
+**Upstream:** #2654 hash **fixed**; #2656 fiber **fixed** (09–11); #2655 clock **fixed**; #2686 concurrent multi-name rebind.  
 **H10:** concurrent multi-name rebind from two fibers unstable — sequential fiber mutates for denseness.  
-**Next (optional):** SIMD/pin edges; overnight; #2655 clock; host harden H10/#2686.
+**Next (optional):** SIMD/pin edges; overnight;  host harden H10/#2686.
 
 Host style notes: prefer **literals** in helpers (H8); **`while`** not deep recursion; use **`let*`** for sequential fiber ids; JIT counters sparse (H7); every new escape → `notes/escape-log.md`.  
 Need aura binary with #2654+#2656 (runner auto-picks `/tmp/aura-denseness-build/build/aura` if present).

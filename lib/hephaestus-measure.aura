@@ -2,8 +2,9 @@
 ;
 ; (require "hephaestus-measure" all:)
 ;
-; Wall clock is host (current-time) in whole seconds — coarse but pure-Aura.
-; Prefer large enough loads so elapsed_s >= 1 when reporting ops/s.
+; Sub-second elapsed uses host (monotonic-ms) (#2655 / H2). Prefer this over
+; (current-time) whole seconds so short pure kernels report elapsed_ms > 0.
+; (current-time) kept only as legacy wall seconds for wall-timestamp needs.
 ;
 ; Stats storage: process hash (#2654 grow past 8 keys). Alist helpers remain
 ; for probe result alists (heph:alist-ref) and heph:stats-alist export.
@@ -16,7 +17,8 @@
         heph:stats-alist
         heph:alist-ref
         heph:time-call
-        heph:ops-per-sec)
+        heph:ops-per-sec
+        heph:ops-per-ms)
 
 (define (heph:alist-ref key lst default)
   (let loop ((ys lst))
@@ -37,6 +39,7 @@
     (hash-set! h "escapes" 0)
     (hash-set! h "last_escape_reason" 0)
     (hash-set! h "last_elapsed_s" 0)
+    (hash-set! h "last_elapsed_ms" 0)
     (hash-set! h "last_ops" 0)
     (hash-set! h "last_result" 0)
     (hash-set! h "fiber_spawns" 0)
@@ -75,35 +78,45 @@
         (cons "escapes" (heph:stats-ref "escapes"))
         (cons "last_escape_reason" (heph:stats-ref "last_escape_reason"))
         (cons "last_elapsed_s" (heph:stats-ref "last_elapsed_s"))
+        (cons "last_elapsed_ms" (heph:stats-ref "last_elapsed_ms"))
         (cons "last_ops" (heph:stats-ref "last_ops"))
         (cons "last_result" (heph:stats-ref "last_result"))
         (cons "fiber_spawns" (heph:stats-ref "fiber_spawns"))
         (cons "fiber_joins" (heph:stats-ref "fiber_joins"))))
 
-; Run thunk once; record wall seconds (host resolution: 1s).
+; Run thunk once; record elapsed via host (monotonic-ms) (#2655).
 ; ops: logical operation count for this run (caller-defined).
-; Returns alist: :result :elapsed_s :ops :ops_per_s
+; Returns alist: :result :elapsed_ms :elapsed_s :ops :ops_per_s
+; :elapsed_s is ms/1000 (integer quotient) for legacy readers; prefer :elapsed_ms.
 (define (heph:time-call thunk ops)
-  (let ((t0 (current-time)))
+  (let ((t0 (monotonic-ms)))
     (let ((result (thunk)))
-      (let ((t1 (current-time)))
-        (let ((elapsed
+      (let ((t1 (monotonic-ms)))
+        (let ((elapsed-ms
                 (if (and (number? t0) (number? t1) (>= (- t1 t0) 0))
                   (- t1 t0)
                   0)))
           (let ((ops-n (if (number? ops) ops 0)))
-            (let ((ops-s (heph:ops-per-sec ops-n elapsed)))
+            (let ((ops-s (heph:ops-per-sec ops-n elapsed-ms)))
               (heph:stats-bump! "kernels_run")
               (heph:stats-set! "ops_total" (+ (heph:stats-ref "ops_total") ops-n))
-              (heph:stats-set! "last_elapsed_s" elapsed)
+              (heph:stats-set! "last_elapsed_ms" elapsed-ms)
+              (heph:stats-set! "last_elapsed_s" (quotient elapsed-ms 1000))
               (heph:stats-set! "last_ops" ops-n)
               (heph:stats-set! "last_result" (if (number? result) result 0))
               (list (cons ":result" result)
-                    (cons ":elapsed_s" elapsed)
+                    (cons ":elapsed_ms" elapsed-ms)
+                    (cons ":elapsed_s" (quotient elapsed-ms 1000))
                     (cons ":ops" ops-n)
-                    (cons ":ops_per_s" ops-s)))))))))
+                    (cons ":ops_per_s" ops-s))))))))))
 
-(define (heph:ops-per-sec ops elapsed)
-  (if (and (number? ops) (number? elapsed) (> elapsed 0))
-    (/ ops elapsed)
+; ops/s from millisecond elapsed (ops * 1000 / elapsed_ms).
+(define (heph:ops-per-sec ops elapsed-ms)
+  (if (and (number? ops) (number? elapsed-ms) (> elapsed-ms 0))
+    (quotient (* ops 1000) elapsed-ms)
+    0))
+
+(define (heph:ops-per-ms ops elapsed-ms)
+  (if (and (number? ops) (number? elapsed-ms) (> elapsed-ms 0))
+    (quotient ops elapsed-ms)
     0))
