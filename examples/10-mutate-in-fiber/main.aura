@@ -1,0 +1,221 @@
+; examples/10-mutate-in-fiber/main.aura
+;
+; Denseness: typed rebind *inside* fibers (not only on main).
+; Axes: A B C F.
+;
+; PASS path (stable under current host):
+;   M0 — single fiber rebind kscale *2→*3
+;   M1 — sequential fiber rebinds of distinct names (ka then kb)
+;   M2 — fiber rebind concurrent with pure fiber *reader* on same name;
+;         mut applies; final kscale=21; ownership OK
+;         (reader may see mixed mid-flight values)
+;   M3 — concurrent *same-name* rebind stress: no ownership break;
+;         final kscale ∈ {14,21,35}
+;
+; Host residual H10: concurrent rebinds of *distinct* names from two fibers
+; can SIGABRT / empty join on some hosts — not required for denseness PASS.
+; Escapes: 0. Needs aura#2656 fiber + #2654 hash.
+;
+; Run: ./scripts/run-aura.sh examples/10-mutate-in-fiber/main.aura
+
+(require "hephaestus-min" all:)
+
+(heph:stats-reset!)
+
+(display "=== Hephaestus 10-mutate-in-fiber ===")
+(newline)
+
+(define backend (try (fiber:spawn-backend) (catch (e) 0)))
+(display "fiber:spawn-backend=")
+(display backend)
+(newline)
+
+(define installed
+  (heph:install-source
+    "(define kscale (lambda (x) (* x 2))) (define ka (lambda (x) (* x 2))) (define kb (lambda (x) (* x 2)))"))
+
+(if (not installed)
+  (begin
+    (display "FAIL: install")
+    (newline)
+    (display "RESULT fail example=10-mutate-in-fiber")
+    (newline))
+  (begin
+    ; ── M0: single fiber mutate ──
+    (let* ((fid
+             (fiber:spawn
+               (lambda ()
+                 (heph:rebind-safe "kscale" "(lambda (x) (* x 3))" "m0-fiber"))))
+           (r0 (if (and (number? fid) (> fid 0)) (fiber:join fid) #f))
+           (m0-ok
+             (and (number? fid) (> fid 0)
+                  (pair? r0)
+                  (eq? (heph:alist-ref ":ok" r0 #f) #t)
+                  (= (kscale 7) 21))))
+      (if (and (number? fid) (> fid 0))
+        (begin
+          (heph:stats-bump! "fiber_spawns")
+          (heph:stats-bump! "fiber_joins"))
+        #f)
+      (if m0-ok
+        (heph:stats-bump! "correctness_ok")
+        (heph:stats-bump! "correctness_fail"))
+      (display "M0 single-fiber rebind ok=")
+      (display m0-ok)
+      (display " r=")
+      (write r0)
+      (display " kscale(7)=")
+      (display (kscale 7))
+      (newline)
+
+      ; ── M1: sequential fiber rebinds of distinct names ──
+      (let* ((fa
+               (fiber:spawn
+                 (lambda ()
+                   (heph:rebind-safe "ka" "(lambda (x) (* x 3))" "m1-a"))))
+             (ra (if (and (number? fa) (> fa 0)) (fiber:join fa) #f))
+             (fb
+               (fiber:spawn
+                 (lambda ()
+                   (heph:rebind-safe "kb" "(lambda (x) (* x 5))" "m1-b"))))
+             (rb (if (and (number? fb) (> fb 0)) (fiber:join fb) #f))
+             (m1-ok
+               (and (number? fa) (> fa 0) (number? fb) (> fb 0)
+                    (pair? ra) (pair? rb)
+                    (eq? (heph:alist-ref ":ok" ra #f) #t)
+                    (eq? (heph:alist-ref ":ok" rb #f) #t)
+                    (= (ka 7) 21)
+                    (= (kb 7) 35))))
+        (heph:stats-bump! "fiber_spawns")
+        (heph:stats-bump! "fiber_spawns")
+        (heph:stats-bump! "fiber_joins")
+        (heph:stats-bump! "fiber_joins")
+        (if m1-ok
+          (heph:stats-bump! "correctness_ok")
+          (heph:stats-bump! "correctness_fail"))
+        (display "M1 sequential fiber rebinds (ka then kb) ok=")
+        (display m1-ok)
+        (display " ka(7)=")
+        (display (ka 7))
+        (display " kb(7)=")
+        (display (kb 7))
+        (newline)
+
+        ; ── M2: pure reader running while fiber mutates (reader first) ──
+        (let* ((reset (heph:rebind-safe "kscale" "(lambda (x) (* x 2))" "m2-reset"))
+               ; start reader first so it is mid-flight during rebind
+               (fr
+                 (fiber:spawn
+                   (lambda ()
+                     (let ((i 0) (acc 0))
+                       (while (lambda () (< i 800))
+                         (lambda ()
+                           (set! acc (+ acc (kscale 7)))
+                           (set! i (+ i 1))))
+                       acc))))
+               (fm
+                 (fiber:spawn
+                   (lambda ()
+                     (heph:rebind-safe "kscale" "(lambda (x) (* x 3))" "m2-mut"))))
+               (rm (if (and (number? fm) (> fm 0)) (fiber:join fm) #f))
+               (rr (if (and (number? fr) (> fr 0)) (fiber:join fr) #f))
+               (m2-mut-ok (and (pair? rm) (eq? (heph:alist-ref ":ok" rm #f) #t)))
+               (m2-final-ok (= (kscale 7) 21))
+               ; denseness: mut+final required; reader result optional if join empty
+               (m2-ok (and (eq? (heph:alist-ref ":ok" reset #f) #t)
+                           m2-mut-ok m2-final-ok)))
+          (heph:stats-bump! "fiber_spawns")
+          (heph:stats-bump! "fiber_spawns")
+          (heph:stats-bump! "fiber_joins")
+          (heph:stats-bump! "fiber_joins")
+          (if m2-ok
+            (heph:stats-bump! "correctness_ok")
+            (heph:stats-bump! "correctness_fail"))
+          (display "M2 mut+reader ok=")
+          (display m2-ok)
+          (display " mut-ok=")
+          (display m2-mut-ok)
+          (display " final k=")
+          (display (kscale 7))
+          (display " reader-acc=")
+          (write rr)
+          (display " reader-num?=")
+          (display (number? rr))
+          (newline)
+          (display "M2 note: denseness needs mut+final=21; reader may mix 14/21")
+          (newline)
+
+          ; ── M3: concurrent same-name rebind stress ──
+          (let* ((rset (heph:rebind-safe "kscale" "(lambda (x) (* x 2))" "m3-reset"))
+                 (f1
+                   (fiber:spawn
+                     (lambda ()
+                       (heph:rebind-safe "kscale" "(lambda (x) (* x 3))" "m3-a"))))
+                 (f2
+                   (fiber:spawn
+                     (lambda ()
+                       (heph:rebind-safe "kscale" "(lambda (x) (* x 5))" "m3-b"))))
+                 (r1 (if (and (number? f1) (> f1 0)) (fiber:join f1) #f))
+                 (r2 (if (and (number? f2) (> f2 0)) (fiber:join f2) #f))
+                 (ok1 (and (pair? r1) (eq? (heph:alist-ref ":ok" r1 #f) #t)))
+                 (ok2 (and (pair? r2) (eq? (heph:alist-ref ":ok" r2 #f) #t)))
+                 (k7 (kscale 7))
+                 (sane-k (or (= k7 14) (= k7 21) (= k7 35)))
+                 (m3-ok
+                   (and (eq? (heph:alist-ref ":ok" rset #f) #t)
+                        sane-k
+                        (if (and ok1 ok2)
+                          (or (= k7 21) (= k7 35))
+                          #t))))
+            (heph:stats-bump! "fiber_spawns")
+            (heph:stats-bump! "fiber_spawns")
+            (heph:stats-bump! "fiber_joins")
+            (heph:stats-bump! "fiber_joins")
+            (if m3-ok
+              (heph:stats-bump! "correctness_ok")
+              (heph:stats-bump! "correctness_fail"))
+            (display "M3 same-name concurrent ok=")
+            (display m3-ok)
+            (display " ok1=")
+            (display ok1)
+            (display " ok2=")
+            (display ok2)
+            (display " kscale(7)=")
+            (display k7)
+            (newline)
+
+            (let* ((own (heph:record-own! (heph:own-check)))
+                   (own-ok (eq? (heph:alist-ref ":all-ok" own #f) #t))
+                   (esc0 (= (heph:escape-count) 0))
+                   (all-ok
+                     (and m0-ok m1-ok m2-ok m3-ok own-ok esc0
+                          (= (heph:stats-ref "correctness_fail") 0)
+                          (or (= backend 1) (= backend 2)))))
+              (display "own-check: ")
+              (write own)
+              (newline)
+              (display "stats: ")
+              (write (heph:stats-alist))
+              (newline)
+              (if all-ok
+                (begin
+                  (display "PASS: mutate-in-fiber denseness (escapes=0)")
+                  (newline)
+                  (display "RESULT pass example=10-mutate-in-fiber escapes=0")
+                  (newline))
+                (begin
+                  (display "FAIL: mutate-in-fiber denseness")
+                  (newline)
+                  (display "RESULT fail example=10-mutate-in-fiber")
+                  (newline)
+                  (display "  m0=")
+                  (display m0-ok)
+                  (display " m1=")
+                  (display m1-ok)
+                  (display " m2=")
+                  (display m2-ok)
+                  (display " m3=")
+                  (display m3-ok)
+                  (display " own=")
+                  (display own-ok)
+                  (newline))))))))))

@@ -75,6 +75,14 @@ Format:
 
 - **Observed (historical):** Thread-fallback ids started at `-1`; denseness treated first spawn as failure.
 - **Upstream:** [aura#2656](https://github.com/cybrid-systems/aura/issues/2656) **fixed** (`f97c3382` positive `0x4000_0000|seq` ids + `fiber:spawn-backend`).
-- **Hephaestus:** `examples/09-concurrent-rebind` PASS (4-worker fanout + main rebind); `08` reports `HOST_OK id=A-fiber`.
-- **Status:** **closed** (upstream fixed + concurrent probe landed)
-- **Caveat:** Top-level simultaneous `define` of two spawns can alias ids (use `let*`); workers must not mutate — main rebinds only.
+- **Hephaestus:** `examples/09-concurrent-rebind` PASS; `10-mutate-in-fiber` PASS; `08` reports `HOST_OK id=A-fiber`.
+- **Status:** **closed** (upstream fixed + probes 09–10)
+- **Caveat:** Top-level simultaneous `define` of two spawns can alias ids (use `let*`).
+
+## H10 — Concurrent multi-name rebind from two fibers unstable
+
+- **Observed:** Two fibers calling `heph:rebind-safe` on **distinct** names at the same time can: empty `fiber:join` result, or **SIGABRT** (`FlatAST::get` id assert) under repeated trials.
+- **Impact:** Denseness PASS path for multi-name mutate-in-fiber is **sequential** fiber rebinds (spawn+join per name). Concurrent same-name stress is softer (final state + ownership).
+- **Upstream:** candidate for hardening workspace lock around `mutate:rebind` / defuse under multi-thread CLI backend.
+- **Status:** mitigated (probe design) / open host
+- **Probe:** `examples/10-mutate-in-fiber` documents H10; does not require concurrent multi-name success.

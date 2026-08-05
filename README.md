@@ -155,7 +155,8 @@ hephaestus/
 │   ├── 06-long-n-soak/
 │   ├── 07-long-n-50/
 │   ├── 08-host-anomaly-scan/
-│   └── 09-concurrent-rebind/
+│   ├── 09-concurrent-rebind/
+│   └── 10-mutate-in-fiber/
 ├── notes/
 │   ├── aura-unify.md        # Unify theory (read first)
 │   ├── escape-log.md
@@ -199,7 +200,8 @@ On scoped \(S_{\mathrm{Hephaestus}}\), \(V_A\) is **practically dense** for the 
 ```bash
 for p in 01-minimal-kernel 02-mutation-under-load 03-ownership-transfer \
          04-jit-specialization 05-perf-escape-boundary 06-long-n-soak \
-         07-long-n-50 08-host-anomaly-scan 09-concurrent-rebind; do
+         07-long-n-50 08-host-anomaly-scan 09-concurrent-rebind \
+         10-mutate-in-fiber; do
   ./scripts/run-aura.sh "examples/$p/main.aura" || exit 1
 done
 ```
