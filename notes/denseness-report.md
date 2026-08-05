@@ -43,7 +43,8 @@ Hephaestus does **not** claim denseness over all of \(S_{\mathrm{practical}}\) o
 | [05-perf-escape-boundary](../examples/05-perf-escape-boundary/) | A B C E F | **PASS** | **0** | **≥6** (metered FFI abs) |
 | [06-long-n-soak](../examples/06-long-n-soak/) | A B C D F | **PASS** N=25 | 0 | 0 |
 | [07-long-n-50](../examples/07-long-n-50/) | A B C D F | **PASS** N=50 | 0 | 0 |
-| [08-host-anomaly-scan](../examples/08-host-anomaly-scan/) | host | **PASS** (anomalies reported; core intact) | 0 | 0 |
+| [08-host-anomaly-scan](../examples/08-host-anomaly-scan/) | host | **PASS** (hash/fiber OK post-fix; H2 clock optional) | 0 | 0 |
+| [09-concurrent-rebind](../examples/09-concurrent-rebind/) | A B C F | **PASS** 4-worker fanout + main rebind | 0 | 0 |
 
 ---
 
@@ -88,20 +89,19 @@ This is a **constructive denseness** judgment (runnable probes + escape accounti
 
 ### Open follow-ups (not blockers for this judgment)
 
-- Concurrent fiber mutation stress — blocked on [aura#2656](https://github.com/cybrid-systems/aura/issues/2656)  
+- Concurrent **mutate inside fibers** (09 keeps mutate on main only)  
 - Sub-second metrology — [aura#2655](https://github.com/cybrid-systems/aura/issues/2655)  
-- Language hash capacity/silent drop — [aura#2654](https://github.com/cybrid-systems/aura/issues/2654)  
 - Richer JIT observability (H7)  
 - SIMD / multi-buffer FFI with ownership pins  
 - Overnight harness  
 
 ### Upstream issues filed from Hephaestus denseness
 
-| Aura issue | Residual | Topic |
-|------------|----------|--------|
-| [#2654](https://github.com/cybrid-systems/aura/issues/2654) | H6 | `(hash)` / `hash-set!` fixed cap 8, silent drop |
-| [#2655](https://github.com/cybrid-systems/aura/issues/2655) | H2 | sub-second / monotonic clock for denseness metrology |
-| [#2656](https://github.com/cybrid-systems/aura/issues/2656) | H9 | `fiber:spawn` → -1; concurrent denseness blocked |
+| Aura issue | Residual | Topic | Status |
+|------------|----------|--------|--------|
+| [#2654](https://github.com/cybrid-systems/aura/issues/2654) | H6 | `(hash)` / `hash-set!` grow | **fixed** — measure uses hash again |
+| [#2655](https://github.com/cybrid-systems/aura/issues/2655) | H2 | sub-second / monotonic clock | open |
+| [#2656](https://github.com/cybrid-systems/aura/issues/2656) | H9 | `fiber:spawn` positive ids | **fixed** — probe 09 concurrent rebind |
 
 ---
 

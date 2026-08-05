@@ -5,9 +5,8 @@
 ; Wall clock is host (current-time) in whole seconds — coarse but pure-Aura.
 ; Prefer large enough loads so elapsed_s >= 1 when reporting ops/s.
 ;
-; Host residual H6: FlatHashTable effectively holds ~8 keys; multi-entry
-; hash literals and large tables drop keys. Metrology uses an **alist**
-; cell instead of a process-wide hash.
+; Stats storage: process hash (#2654 grow past 8 keys). Alist helpers remain
+; for probe result alists (heph:alist-ref) and heph:stats-alist export.
 
 (export heph:stats
         heph:stats-reset!
@@ -26,46 +25,44 @@
           ((equal? (car (car ys)) key) (cdr (car ys)))
           (else (loop (cdr ys))))))
 
-(define (heph:alist-set key val lst)
-  (let loop ((ys lst) (acc '()))
-    (cond ((null? ys) (cons (cons key val) (reverse acc)))
-          ((equal? (car (car ys)) key)
-           (append (reverse acc) (cons (cons key val) (cdr ys))))
-          (else (loop (cdr ys) (cons (car ys) acc))))))
+; Process-wide stats hash (grows under #2654).
+(define (heph:make-stats-hash)
+  (let ((h (hash)))
+    (hash-set! h "kernels_run" 0)
+    (hash-set! h "ops_total" 0)
+    (hash-set! h "correctness_ok" 0)
+    (hash-set! h "correctness_fail" 0)
+    (hash-set! h "ownership_ok" 0)
+    (hash-set! h "ownership_fail" 0)
+    (hash-set! h "escapes" 0)
+    (hash-set! h "last_escape_reason" 0)
+    (hash-set! h "last_elapsed_s" 0)
+    (hash-set! h "last_ops" 0)
+    (hash-set! h "last_result" 0)
+    (hash-set! h "fiber_spawns" 0)
+    (hash-set! h "fiber_joins" 0)
+    h))
 
-(define (heph:make-stats-alist)
-  (list (cons "kernels_run" 0)
-        (cons "ops_total" 0)
-        (cons "correctness_ok" 0)
-        (cons "correctness_fail" 0)
-        (cons "ownership_ok" 0)
-        (cons "ownership_fail" 0)
-        (cons "escapes" 0)
-        (cons "last_escape_reason" 0)
-        (cons "last_elapsed_s" 0)
-        (cons "last_ops" 0)
-        (cons "last_result" 0)))
-
-(define *heph-stats* (heph:make-stats-alist))
+(define *heph-stats* (heph:make-stats-hash))
 
 (define (heph:stats)
   *heph-stats*)
 
 (define (heph:stats-reset!)
-  (set! *heph-stats* (heph:make-stats-alist))
+  (set! *heph-stats* (heph:make-stats-hash))
   *heph-stats*)
 
 (define (heph:stats-ref key)
-  (let ((v (heph:alist-ref key *heph-stats* 0)))
+  (let ((v (hash-ref *heph-stats* key 0)))
     (if (number? v) v 0)))
 
 (define (heph:stats-bump! key)
   (let ((n (+ 1 (heph:stats-ref key))))
-    (set! *heph-stats* (heph:alist-set key n *heph-stats*))
+    (hash-set! *heph-stats* key n)
     n))
 
 (define (heph:stats-set! key val)
-  (set! *heph-stats* (heph:alist-set key val *heph-stats*))
+  (hash-set! *heph-stats* key val)
   val)
 
 (define (heph:stats-alist)
@@ -79,7 +76,9 @@
         (cons "last_escape_reason" (heph:stats-ref "last_escape_reason"))
         (cons "last_elapsed_s" (heph:stats-ref "last_elapsed_s"))
         (cons "last_ops" (heph:stats-ref "last_ops"))
-        (cons "last_result" (heph:stats-ref "last_result"))))
+        (cons "last_result" (heph:stats-ref "last_result"))
+        (cons "fiber_spawns" (heph:stats-ref "fiber_spawns"))
+        (cons "fiber_joins" (heph:stats-ref "fiber_joins"))))
 
 ; Run thunk once; record wall seconds (host resolution: 1s).
 ; ops: logical operation count for this run (caller-defined).

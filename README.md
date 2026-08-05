@@ -154,7 +154,8 @@ hephaestus/
 │   ├── 05-perf-escape-boundary/
 │   ├── 06-long-n-soak/
 │   ├── 07-long-n-50/
-│   └── 08-host-anomaly-scan/
+│   ├── 08-host-anomaly-scan/
+│   └── 09-concurrent-rebind/
 ├── notes/
 │   ├── aura-unify.md        # Unify theory (read first)
 │   ├── escape-log.md
@@ -198,11 +199,12 @@ On scoped \(S_{\mathrm{Hephaestus}}\), \(V_A\) is **practically dense** for the 
 ```bash
 for p in 01-minimal-kernel 02-mutation-under-load 03-ownership-transfer \
          04-jit-specialization 05-perf-escape-boundary 06-long-n-soak \
-         07-long-n-50 08-host-anomaly-scan; do
+         07-long-n-50 08-host-anomaly-scan 09-concurrent-rebind; do
   ./scripts/run-aura.sh "examples/$p/main.aura" || exit 1
 done
 ```
 
-Upstream Aura issues from denseness mining: **#2654** (hash), **#2655** (clock), **#2656** (fiber:spawn).
+Upstream from denseness mining: **#2654** hash (**fixed**), **#2656** fiber (**fixed**), **#2655** clock (open).  
+`scripts/run-aura.sh` prefers `/tmp/aura-denseness-build/build/aura` when present (build at/after `f97c3382`).
 
 Hephaestus continues Aura Unify’s constructive measurement program after Aether’s agent-loop denseness result — pressure-testing the same basis on performance / numerical / systems-kernel subspace.

@@ -83,12 +83,14 @@ Rollback (if needed)      →  Specialize / Bind
 | `examples/05-perf-escape-boundary` | **PASS** (core \(E\)=0, edge metered) |
 | `examples/06-long-n-soak` | **PASS** N=25 |
 | `examples/07-long-n-50` | **PASS** N=50 |
-| `examples/08-host-anomaly-scan` | **PASS** (HOST_ANOMALY lines; core OK) |
+| `examples/08-host-anomaly-scan` | **PASS** (hash/fiber OK post-fix) |
+| `examples/09-concurrent-rebind` | **PASS** fiber fanout + main rebind |
 
-**Upstream Aura issues:** #2654 hash, #2655 clock, #2656 fiber:spawn.  
-**Next (optional):** concurrent fiber denseness after #2656; SIMD/pin edges; overnight harness.
+**Upstream:** #2654 hash **fixed** (measure uses hash); #2656 fiber **fixed** (probe 09); #2655 clock open.  
+**Next (optional):** mutate-in-fiber stress; SIMD/pin edges; overnight; #2655 clock.
 
-Host style notes (see `notes/host-residuals.md`): prefer **literals** in helpers (H8); **`while`** not deep recursion; **alist stats** (H6); JIT counters sparse (H7); every new escape → `notes/escape-log.md`.
+Host style notes: prefer **literals** in helpers (H8); **`while`** not deep recursion; use **`let*`** for sequential fiber ids; JIT counters sparse (H7); every new escape → `notes/escape-log.md`.  
+Need aura binary with #2654+#2656 (runner auto-picks `/tmp/aura-denseness-build/build/aura` if present).
 
 When generating code or probes, keep the denseness claim **testable** and the escape discipline **strict**.
 

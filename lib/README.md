@@ -4,7 +4,7 @@ Composable denseness helpers. Prefer these modules from probes; do not fork Aura
 
 | Module | Axes | Role |
 |--------|------|------|
-| `hephaestus-measure.aura` | F | Alist stats, wall-time call, ops/s (H6) |
+| `hephaestus-measure.aura` | F | Process **hash** stats (#2654 grow), wall-time, ops/s |
 | `hephaestus-kernel.aura` | A | Pure-Aura numerical kernels (`while` loops) |
 | `hephaestus-mutate.aura` | B | install / snapshot / restore / rebind-safe |
 | `hephaestus-own.aura` | C | ownership/nodes/quota checks |

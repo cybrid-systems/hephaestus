@@ -14,21 +14,37 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-AURA_BIN="${AURA_BIN:-$ROOT/../aura-grok/build/aura}"
-AURA_LIB="${AURA_LIB:-$ROOT/../aura-grok/lib}"
-HEPHAESTUS_LIB="${HEPHAESTUS_LIB:-$ROOT/lib}"
-
-if [[ ! -x "$AURA_BIN" ]]; then
-  # Fallbacks: sibling aura checkout or PATH
-  if [[ -x "$ROOT/../aura/build/aura" ]]; then
+# Prefer explicit AURA_BIN. Else denseness worktree (#2654/#2656), then aura-grok.
+if [[ -z "${AURA_BIN:-}" ]]; then
+  if [[ -x /tmp/aura-denseness-build/build/aura ]]; then
+    AURA_BIN=/tmp/aura-denseness-build/build/aura
+  elif [[ -x "$ROOT/../aura-grok/build/aura" ]]; then
+    AURA_BIN="$ROOT/../aura-grok/build/aura"
+  elif [[ -x "$ROOT/../aura/build/aura" ]]; then
     AURA_BIN="$ROOT/../aura/build/aura"
   elif command -v aura >/dev/null 2>&1; then
     AURA_BIN="$(command -v aura)"
   else
-    echo "error: aura binary not found or not executable: $AURA_BIN" >&2
-    echo "  build aura-grok or set AURA_BIN" >&2
+    echo "error: aura binary not found; set AURA_BIN or build aura-grok" >&2
     exit 1
   fi
+fi
+
+# Match stdlib to denseness worktree when using that binary.
+if [[ -z "${AURA_LIB:-}" ]]; then
+  if [[ "$AURA_BIN" == /tmp/aura-denseness-build/* && -d /tmp/aura-denseness-build/lib/std ]]; then
+    AURA_LIB=/tmp/aura-denseness-build/lib
+  elif [[ -d "$ROOT/../aura-grok/lib/std" ]]; then
+    AURA_LIB="$ROOT/../aura-grok/lib"
+  else
+    AURA_LIB="$ROOT/../aura/lib"
+  fi
+fi
+HEPHAESTUS_LIB="${HEPHAESTUS_LIB:-$ROOT/lib}"
+
+if [[ ! -x "$AURA_BIN" ]]; then
+  echo "error: aura binary not executable: $AURA_BIN" >&2
+  exit 1
 fi
 
 if [[ ! -d "$AURA_LIB/std" ]]; then

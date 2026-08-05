@@ -21,7 +21,7 @@
 (require "hephaestus-own" all:)
 (require "hephaestus-escape" all:)
 
-(define heph:min-version 5)
+(define heph:min-version 6)
 
 ; Closed form: sum_{i=0}^{n-1} i^2 = (n-1)n(2n-1)/6
 (define (heph:closed-sum-sq n)

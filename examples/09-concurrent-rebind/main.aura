@@ -1,0 +1,179 @@
+; examples/09-concurrent-rebind/main.aura
+;
+; Concurrent denseness probe after aura#2656 (positive fiber:spawn ids).
+; Axes: A B C F (+ concurrent load while pure-Aura core rebinds on main).
+;
+; Pattern (Aether-aligned): workers only *read* kscale under load;
+; main thread alone rebinds. No mutate inside fibers.
+;
+; Scenario:
+;   C0: assert fiber:spawn-backend usable; spawn returns positive id
+;   C1: factor=2 — spawn 4 workers, each sums kscale(1..N); join; match closed
+;   C2: main rebind to *3; spawn 4 workers again; match factor 3
+;   C3: own-check + escapes=0; hash metrology still holds 12+ keys
+;
+; Run (needs aura with #2654+#2656):
+;   AURA_BIN=.../aura ./scripts/run-aura.sh examples/09-concurrent-rebind/main.aura
+
+(require "hephaestus-min" all:)
+
+(heph:stats-reset!)
+
+(display "=== Hephaestus 09-concurrent-rebind ===")
+(newline)
+
+(define installed
+  (heph:install-source "(define kscale (lambda (x) (* x 2)))"))
+
+(if (not installed)
+  (begin
+    (display "FAIL: install")
+    (newline)
+    (display "RESULT fail example=09-concurrent-rebind")
+    (newline))
+  (let* ((backend
+           (try (fiber:spawn-backend) (catch (e) 0)))
+         ; closed: sum_{i=1}^{128} factor*i = factor * 128*129/2
+         (want2 (/ (* 2 (* 128 129)) 2))
+         (want3 (/ (* 3 (* 128 129)) 2)))
+
+    (display "C0 fiber:spawn-backend=")
+    (display backend)
+    (display " (1=scheduler 2=thread)")
+    (newline)
+
+    ; Worker body: pure load of kscale (no rebind).
+    (define (worker-sum)
+      (let ((i 1) (acc 0))
+        (while (lambda () (<= i 128))
+          (lambda ()
+            (set! acc (+ acc (kscale i)))
+            (set! i (+ i 1))))
+        acc))
+
+    ; Spawn n workers, join all; return list of results (or #f on bad spawn).
+    (define (fanout-join n)
+      (let ((ids '())
+            (k 0)
+            (ok #t))
+        (while (lambda () (and ok (< k n)))
+          (lambda ()
+            (let ((fid (fiber:spawn worker-sum)))
+              (heph:stats-bump! "fiber_spawns")
+              (if (and (number? fid) (> fid 0))
+                (begin
+                  (set! ids (cons fid ids))
+                  (set! k (+ k 1)))
+                (set! ok #f)))))
+        (if (not ok)
+          #f
+          (let ((rs '())
+                (xs ids))
+            (while (lambda () (pair? xs))
+              (lambda ()
+                (let ((r (fiber:join (car xs))))
+                  (heph:stats-bump! "fiber_joins")
+                  (set! rs (cons r rs))
+                  (set! xs (cdr xs)))))
+            rs))))
+
+    (define (all-eq-want results want)
+      (let ((xs results) (ok #t))
+        (while (lambda () (and ok (pair? xs)))
+          (lambda ()
+            (if (not (and (number? (car xs)) (= (car xs) want)))
+              (set! ok #f)
+              #f)
+            (set! xs (cdr xs))))
+        ok))
+
+    ; ── C0 smoke ──
+    (let* ((fid0 (fiber:spawn (lambda () 7)))
+           (c0-spawn (and (number? fid0) (> fid0 0)))
+           (j0 (if c0-spawn (fiber:join fid0) #f))
+           (c0-ok (and c0-spawn (= j0 7) (or (= backend 1) (= backend 2)))))
+      (if c0-spawn
+        (begin
+          (heph:stats-bump! "fiber_spawns")
+          (heph:stats-bump! "fiber_joins"))
+        #f)
+      (display "C0 spawn/join ok=")
+      (display c0-ok)
+      (display " fid=")
+      (write fid0)
+      (newline)
+
+      ; ── C1 factor 2 concurrent load ──
+      (let* ((rs2 (fanout-join 4))
+             (c1-ok (and (pair? rs2) (all-eq-want rs2 want2))))
+        (display "C1 fanout factor2 ok=")
+        (display c1-ok)
+        (display " results=")
+        (write rs2)
+        (newline)
+        (if c1-ok (heph:stats-bump! "correctness_ok")
+          (heph:stats-bump! "correctness_fail"))
+
+        ; ── C2 rebind then concurrent load ──
+        (let* ((rb (heph:rebind-safe "kscale" "(lambda (x) (* x 3))" "conc-triple"))
+               (rb-ok (eq? (heph:alist-ref ":ok" rb #f) #t))
+               (sample-ok (= (kscale 7) 21))
+               (rs3 (fanout-join 4))
+               (c2-ok (and rb-ok sample-ok (pair? rs3) (all-eq-want rs3 want3))))
+          (display "C2 rebind+fanout factor3 ok=")
+          (display c2-ok)
+          (display " rebind=")
+          (write rb)
+          (newline)
+          (display "C2 results=")
+          (write rs3)
+          (newline)
+          (if c2-ok (heph:stats-bump! "correctness_ok")
+            (heph:stats-bump! "correctness_fail"))
+
+          ; ── C3 ownership + hash metrology (12 keys in stats) ──
+          (let* ((own (heph:record-own! (heph:own-check)))
+                 (own-ok (eq? (heph:alist-ref ":all-ok" own #f) #t))
+                 (hlen (hash-length (heph:stats)))
+                 (hash-ok (>= hlen 12))
+                 (esc0 (= (heph:escape-count) 0)))
+            (display "C3 own-ok=")
+            (display own-ok)
+            (display " hash-length=")
+            (display hlen)
+            (display " hash-ok=")
+            (display hash-ok)
+            (display " escapes=")
+            (display (heph:escape-count))
+            (newline)
+            (display "stats: ")
+            (write (heph:stats-alist))
+            (newline)
+
+            (let ((all-ok
+                    (and c0-ok c1-ok c2-ok own-ok hash-ok esc0
+                         (= (heph:stats-ref "correctness_fail") 0)
+                         (>= (heph:stats-ref "fiber_spawns") 9)
+                         (>= (heph:stats-ref "fiber_joins") 9))))
+              (if all-ok
+                (begin
+                  (display "PASS: concurrent fiber load + main rebind (escapes=0)")
+                  (newline)
+                  (display "RESULT pass example=09-concurrent-rebind escapes=0")
+                  (newline))
+                (begin
+                  (display "FAIL: concurrent rebind denseness")
+                  (newline)
+                  (display "RESULT fail example=09-concurrent-rebind")
+                  (newline)
+                  (display "  c0=")
+                  (display c0-ok)
+                  (display " c1=")
+                  (display c1-ok)
+                  (display " c2=")
+                  (display c2-ok)
+                  (display " own=")
+                  (display own-ok)
+                  (display " hash=")
+                  (display hash-ok)
+                  (newline))))))))))

@@ -51,11 +51,11 @@ Format:
 
 ## H6 — FlatHashTable capacity ≈ 8 keys
 
-- **Observed:** Multi-entry `(hash k v …)` literals drop later keys. Even sequential `hash-set!` on a fresh `(hash)` only retains ~8 keys reliably (`ok-keys=8` in probe); further sets miss on hash-ref.
-- **Impact on probes:** Metrology must not use a large process hash for stats. `hephaestus-measure` stores counters in an **alist** (`*heph-stats*`) instead.
-- **Upstream or local fix:** local alist metrology; **filed** [aura#2654](https://github.com/cybrid-systems/aura/issues/2654) (language `hash` / `hash-set!` resize; sibling of closed #2481 json-parse).
-- **Status:** mitigated (measure module → alist) / **upstream open #2654**
-- **Repro probe:** `examples/08-host-anomaly-scan` (`HOST_ANOMALY id=A-hash`)
+- **Observed (historical):** Multi-entry `(hash k v …)` / `hash-set!` dropped keys past capacity 8.
+- **Upstream:** [aura#2654](https://github.com/cybrid-systems/aura/issues/2654) **fixed** (`e5f6b207` grow/rehash). Verified: ok=16 fail=0, literal 10-key hash OK on denseness binary.
+- **Hephaestus:** `hephaestus-measure` **migrated back to process hash** (v6); `examples/08` reports `HOST_OK id=A-hash`.
+- **Status:** **closed** (upstream fixed + local migrate)
+- **Note:** Need aura built at/after #2654; stale binaries still fail 08/hash paths.
 
 ## H7 — Compile / JIT dirty & stats surfaces sparse
 
@@ -73,8 +73,8 @@ Format:
 
 ## H9 — `fiber:spawn` returns -1 (concurrent denseness blocked)
 
-- **Observed:** `(fiber:spawn (lambda () 1))` → `-1` under Hephaestus denseness runner env.
-- **Impact on probes:** Cannot denseness-test real concurrent mutation; sequential rebind soak only.
-- **Upstream or local fix:** **filed** [aura#2656](https://github.com/cybrid-systems/aura/issues/2656); Aether sequential-yield fanout remains PASS path.
-- **Status:** **upstream open #2656**
-- **Repro probe:** `examples/08-host-anomaly-scan` (`HOST_ANOMALY id=A-fiber`)
+- **Observed (historical):** Thread-fallback ids started at `-1`; denseness treated first spawn as failure.
+- **Upstream:** [aura#2656](https://github.com/cybrid-systems/aura/issues/2656) **fixed** (`f97c3382` positive `0x4000_0000|seq` ids + `fiber:spawn-backend`).
+- **Hephaestus:** `examples/09-concurrent-rebind` PASS (4-worker fanout + main rebind); `08` reports `HOST_OK id=A-fiber`.
+- **Status:** **closed** (upstream fixed + concurrent probe landed)
+- **Caveat:** Top-level simultaneous `define` of two spawns can alias ids (use `let*`); workers must not mutate — main rebinds only.
