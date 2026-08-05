@@ -157,7 +157,8 @@ hephaestus/
 │   ├── 08-host-anomaly-scan/
 │   ├── 09-concurrent-rebind/
 │   ├── 10-mutate-in-fiber/
-│   └── 11-snapshot-after-fiber-mutate/
+│   ├── 11-snapshot-after-fiber-mutate/
+│   └── 12-subsecond-metrology/
 ├── notes/
 │   ├── aura-unify.md        # Unify theory (read first)
 │   ├── escape-log.md

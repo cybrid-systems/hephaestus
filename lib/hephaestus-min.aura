@@ -4,7 +4,7 @@
 
 (export heph:stats heph:stats-reset! heph:stats-ref heph:stats-bump!
         heph:stats-set! heph:stats-alist heph:alist-ref
-        heph:time-call heph:ops-per-sec
+        heph:time-call heph:ops-per-sec heph:ops-per-ms
         heph:fill-index! heph:sum-sq heph:dot heph:saxpy! heph:reduce-sum
         heph:kernel-version heph:min-version
         heph:closed-sum-sq heph:check-eq
@@ -21,7 +21,7 @@
 (require "hephaestus-own" all:)
 (require "hephaestus-escape" all:)
 
-(define heph:min-version 6)
+(define heph:min-version 7)
 
 ; Closed form: sum_{i=0}^{n-1} i^2 = (n-1)n(2n-1)/6
 (define (heph:closed-sum-sq n)

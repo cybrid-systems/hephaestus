@@ -97,7 +97,8 @@
                   (- t1 t0)
                   0)))
           (let ((ops-n (if (number? ops) ops 0)))
-            (let ((ops-s (heph:ops-per-sec ops-n elapsed-ms)))
+            (let ((ops-s (heph:ops-per-sec ops-n elapsed-ms))
+                  (ops-m (heph:ops-per-ms ops-n elapsed-ms)))
               (heph:stats-bump! "kernels_run")
               (heph:stats-set! "ops_total" (+ (heph:stats-ref "ops_total") ops-n))
               (heph:stats-set! "last_elapsed_ms" elapsed-ms)
@@ -108,7 +109,8 @@
                     (cons ":elapsed_ms" elapsed-ms)
                     (cons ":elapsed_s" (quotient elapsed-ms 1000))
                     (cons ":ops" ops-n)
-                    (cons ":ops_per_s" ops-s))))))))))
+                    (cons ":ops_per_s" ops-s)
+                    (cons ":ops_per_ms" ops-m))))))))))
 
 ; ops/s from millisecond elapsed (ops * 1000 / elapsed_ms).
 (define (heph:ops-per-sec ops elapsed-ms)

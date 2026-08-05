@@ -87,13 +87,14 @@ Rollback (if needed)      →  Specialize / Bind
 | `examples/09-concurrent-rebind` | **PASS** fiber fanout + main rebind |
 | `examples/10-mutate-in-fiber` | **PASS** rebind inside fibers |
 | `examples/11-snapshot-after-fiber-mutate` | **PASS** restore after fiber rebind |
+| `examples/12-subsecond-metrology` | **PASS** short-path ms metrology (#2655) |
 
-**Upstream:** #2654 hash **fixed**; #2656 fiber **fixed** (09–11); #2655 clock **fixed**; #2686 concurrent multi-name rebind.  
-**H10:** concurrent multi-name rebind from two fibers unstable — sequential fiber mutates for denseness.  
-**Next (optional):** SIMD/pin edges; overnight;  host harden H10/#2686.
+**Upstream fixed & wired:** #2654 hash, #2656 fiber, #2655 monotonic-ms.  
+**Open:** #2686 concurrent multi-name rebind (H10); #2684 JIT dirty; #2685 spawn define.  
+**Next (optional):** overnight soak; SIMD/pin \(E\); #2686 hard concurrent multi-mutate.
 
-Host style notes: prefer **literals** in helpers (H8); **`while`** not deep recursion; use **`let*`** for sequential fiber ids; JIT counters sparse (H7); every new escape → `notes/escape-log.md`.  
-Need aura binary with #2654+#2656 (runner auto-picks `/tmp/aura-denseness-build/build/aura` if present).
+Host style: **`let*`** for sequential binds/fiber ids; **`while`** not deep recursion; `heph:time-call` uses **monotonic-ms**.  
+Denseness binary: runner prefers `/tmp/aura-denseness-build/build/aura` when present.
 
 When generating code or probes, keep the denseness claim **testable** and the escape discipline **strict**.
 

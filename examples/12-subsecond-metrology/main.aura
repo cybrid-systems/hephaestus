@@ -1,0 +1,133 @@
+; examples/12-subsecond-metrology/main.aura
+;
+; Denseness unlocked by aura#2655: sub-second (monotonic-ms) metrology.
+; Axes: A D F (+ B rebind for specialization swap).
+;
+; Short pure kernels report elapsed_ms > 0 and ops_per_s > 0 without 1s pad.
+;
+; Run: ./scripts/run-aura.sh examples/12-subsecond-metrology/main.aura
+
+(require "hephaestus-min" all:)
+
+(heph:stats-reset!)
+
+(display "=== Hephaestus 12-subsecond-metrology (#2655) ===")
+(newline)
+(display "heph:min-version=")
+(display heph:min-version)
+(newline)
+
+(define loop-body
+  "(lambda (n) (let ((i 0) (acc 0)) (while (lambda () (< i n)) (lambda () (set! acc (+ acc (* i i))) (set! i (+ i 1)))) acc))")
+
+(define closed-body
+  "(lambda (n) (if (<= n 0) 0 (/ (* (- n 1) n (- (* 2 n) 1)) 6)))")
+
+(define n-load 80000)
+(define n-ref 5000)
+
+(let* ((t0-probe (try (monotonic-ms) (catch (e) #f)))
+       (t0-ok (number? t0-probe))
+       (want-ref (heph:closed-sum-sq n-ref))
+       (want-load (heph:closed-sum-sq n-load))
+       (installed
+         (heph:install-source
+           (string-append "(define sum-kernel " loop-body ")"))))
+  (display "T0 monotonic-ms present=")
+  (display t0-ok)
+  (display " sample=")
+  (display t0-probe)
+  (newline)
+
+  (if (or (not t0-ok) (not installed))
+    (begin
+      (display "FAIL: clock or install")
+      (newline)
+      (display "RESULT fail example=12-subsecond-metrology")
+      (newline))
+    (let* ((got-ref (sum-kernel n-ref))
+           (ref-ok (heph:check-eq got-ref want-ref))
+           (timed-loop
+             (heph:time-call (lambda () (sum-kernel n-load)) n-load))
+           (loop-res (heph:alist-ref ":result" timed-loop 0))
+           (loop-ms (heph:alist-ref ":elapsed_ms" timed-loop -1))
+           (loop-ops-s (heph:alist-ref ":ops_per_s" timed-loop 0))
+           (loop-load-ok (heph:check-eq loop-res want-load))
+           (loop-time-ok (and (number? loop-ms) (> loop-ms 0)))
+           (loop-ops-ok (and (number? loop-ops-s) (> loop-ops-s 0)))
+           (t1-ok (and ref-ok loop-load-ok loop-time-ok loop-ops-ok)))
+      (display "T1 loop load: ")
+      (write timed-loop)
+      (newline)
+      (display "T1 ref-ok=")
+      (display ref-ok)
+      (display " load-ok=")
+      (display loop-load-ok)
+      (display " ms-ok=")
+      (display loop-time-ok)
+      (display " ops-ok=")
+      (display loop-ops-ok)
+      (display " => ")
+      (display t1-ok)
+      (newline)
+
+      (let* ((r2 (heph:rebind-safe "sum-kernel" closed-body "t2-closed"))
+             (r2-ok (eq? (heph:alist-ref ":ok" r2 #f) #t))
+             (got2 (sum-kernel n-ref))
+             (ref2-ok (heph:check-eq got2 want-ref))
+             (timed-closed
+               (heph:time-call (lambda () (sum-kernel n-load)) n-load))
+             (closed-res (heph:alist-ref ":result" timed-closed 0))
+             (closed-ms (heph:alist-ref ":elapsed_ms" timed-closed -1))
+             (closed-ops-s (heph:alist-ref ":ops_per_s" timed-closed 0))
+             (closed-load-ok (heph:check-eq closed-res want-load))
+             (closed-time-ok (and (number? closed-ms) (>= closed-ms 0)))
+             (t2-ok (and r2-ok ref2-ok closed-load-ok closed-time-ok)))
+        (display "T2 closed rebind: ")
+        (write r2)
+        (newline)
+        (display "T2 load: ")
+        (write timed-closed)
+        (newline)
+        (display "T2 ok=")
+        (display t2-ok)
+        (newline)
+
+        (display "T3 compare loop_ms=")
+        (display loop-ms)
+        (display " closed_ms=")
+        (display closed-ms)
+        (display " loop_ops/s=")
+        (display loop-ops-s)
+        (display " closed_ops/s=")
+        (display closed-ops-s)
+        (newline)
+        (display "T3 note: denseness needs measurable coords, not closed always faster")
+        (newline)
+
+        (display "stats: ")
+        (write (heph:stats-alist))
+        (newline)
+
+        (let ((all-ok
+                (and t0-ok t1-ok t2-ok
+                     (= (heph:escape-count) 0)
+                     (= (heph:stats-ref "correctness_fail") 0))))
+          (if all-ok
+            (begin
+              (display "PASS: sub-second metrology denseness (#2655 unlocked)")
+              (newline)
+              (display "RESULT pass example=12-subsecond-metrology escapes=0")
+              (newline))
+            (begin
+              (display "FAIL: sub-second metrology denseness")
+              (newline)
+              (display "RESULT fail example=12-subsecond-metrology")
+              (newline)
+              (display "  t1=")
+              (display t1-ok)
+              (display " t2=")
+              (display t2-ok)
+              (display " loop_ms=")
+              (display loop-ms)
+              (newline))))))))

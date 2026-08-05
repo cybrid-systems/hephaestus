@@ -47,6 +47,7 @@ Hephaestus does **not** claim denseness over all of \(S_{\mathrm{practical}}\) o
 | [09-concurrent-rebind](../examples/09-concurrent-rebind/) | A B C F | **PASS** 4-worker fanout + main rebind | 0 | 0 |
 | [10-mutate-in-fiber](../examples/10-mutate-in-fiber/) | A B C F | **PASS** rebind inside fibers (+ mut‖reader) | 0 | 0 |
 | [11-snapshot-after-fiber-mutate](../examples/11-snapshot-after-fiber-mutate/) | A B C F | **PASS** golden + pre-fiber restore after fiber rebind | 0 | 0 |
+| [12-subsecond-metrology](../examples/12-subsecond-metrology/) | A D F | **PASS** short-path elapsed_ms/ops/s via monotonic-ms | 0 | 0 |
 
 ---
 
@@ -91,9 +92,8 @@ This is a **constructive denseness** judgment (runnable probes + escape accounti
 
 ### Open follow-ups (not blockers for this judgment)
 
-- Hardening concurrent multi-name rebind in fibers (H10)  
-- Sub-second metrology — [aura#2655](https://github.com/cybrid-systems/aura/issues/2655)  
-- Richer JIT observability (H7)  
+- Hardening concurrent multi-name rebind in fibers (H10 / #2686)  
+- Richer JIT observability (H7 / #2684)  
 - SIMD / multi-buffer FFI with ownership pins  
 - Overnight harness  
 
