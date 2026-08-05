@@ -46,6 +46,7 @@ Hephaestus does **not** claim denseness over all of \(S_{\mathrm{practical}}\) o
 | [08-host-anomaly-scan](../examples/08-host-anomaly-scan/) | host | **PASS** (hash/fiber OK post-fix; H2 clock optional) | 0 | 0 |
 | [09-concurrent-rebind](../examples/09-concurrent-rebind/) | A B C F | **PASS** 4-worker fanout + main rebind | 0 | 0 |
 | [10-mutate-in-fiber](../examples/10-mutate-in-fiber/) | A B C F | **PASS** rebind inside fibers (+ mut‖reader) | 0 | 0 |
+| [11-snapshot-after-fiber-mutate](../examples/11-snapshot-after-fiber-mutate/) | A B C F | **PASS** golden + pre-fiber restore after fiber rebind | 0 | 0 |
 
 ---
 

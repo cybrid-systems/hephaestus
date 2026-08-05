@@ -27,6 +27,7 @@ Each probe is a self-contained denseness experiment.
 | 08 | [host-anomaly-scan](08-host-anomaly-scan/) | host | **PASS** (hash/fiber OK after #2654/#2656; H2 clock may still anomaly) |
 | 09 | [concurrent-rebind](09-concurrent-rebind/) | A B C F | **PASS** fiber fanout + main rebind |
 | 10 | [mutate-in-fiber](10-mutate-in-fiber/) | A B C F | **PASS** rebind inside fibers |
+| 11 | [snapshot-after-fiber-mutate](11-snapshot-after-fiber-mutate/) | A B C F | **PASS** restore after fiber rebind |
 
 ## Phase map (aligned with README)
 
@@ -40,4 +41,5 @@ Each probe is a self-contained denseness experiment.
 | **5+** | 07–08 | N=50 soak + host anomaly scan — **landed** |
 | **5++** | 09 | Concurrent fiber load + main rebind (#2656) — **landed** |
 | **5++** | 10 | Mutate-in-fiber rebind denseness — **landed** |
+| **5++** | 11 | Snapshot/restore after fiber mutate — **landed** |
 | **meta** | measure | Stats hash backend restored (#2654) — **landed** |

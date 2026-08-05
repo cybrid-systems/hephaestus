@@ -1,0 +1,169 @@
+; examples/11-snapshot-after-fiber-mutate/main.aura
+;
+; Denseness: snapshot / restore across fiber-internal rebind.
+; Axes: A B C F (rollback dual-correctness after fiber mutate).
+;
+; S0 install kscale=*2
+; S1 fiber rebind → *3; join; capture :snap (pre-mutate inside rebind-safe)
+; S2 main snapshot after successful fiber mutate (post-*3 golden)
+; S3 poison *99 (main or fiber); restore golden → *3 again
+; S4 restore pre-fiber snap → *2 (full rollback chain)
+; S5 own-check + escapes=0
+;
+; Escapes: 0. Needs aura#2656 fiber.
+;
+; Run: ./scripts/run-aura.sh examples/11-snapshot-after-fiber-mutate/main.aura
+
+(require "hephaestus-min" all:)
+
+(heph:stats-reset!)
+
+(display "=== Hephaestus 11-snapshot-after-fiber-mutate ===")
+(newline)
+
+(define backend (try (fiber:spawn-backend) (catch (e) 0)))
+(display "fiber:spawn-backend=")
+(display backend)
+(newline)
+
+(define installed
+  (heph:install-source "(define kscale (lambda (x) (* x 2)))"))
+
+(if (not installed)
+  (begin
+    (display "FAIL: install")
+    (newline)
+    (display "RESULT fail example=11-snapshot-after-fiber-mutate")
+    (newline))
+  (begin
+    ; ── S0 baseline ──
+    (define s0-ok (= (kscale 7) 14))
+    (display "S0 baseline *2 ok=")
+    (display s0-ok)
+    (display " k=")
+    (display (kscale 7))
+    (newline)
+    (if s0-ok
+      (heph:stats-bump! "correctness_ok")
+      (heph:stats-bump! "correctness_fail"))
+
+    ; ── S1 fiber rebind *3 ──
+    (let* ((fid
+             (fiber:spawn
+               (lambda ()
+                 (heph:rebind-safe "kscale" "(lambda (x) (* x 3))" "s1-fiber-triple"))))
+           (r1 (if (and (number? fid) (> fid 0)) (fiber:join fid) #f))
+           (snap-pre (if (pair? r1) (heph:alist-ref ":snap" r1 -1) -1))
+           (s1-ok
+             (and (number? fid) (> fid 0)
+                  (pair? r1)
+                  (eq? (heph:alist-ref ":ok" r1 #f) #t)
+                  (= (kscale 7) 21)
+                  (number? snap-pre) (>= snap-pre 0))))
+      (if (and (number? fid) (> fid 0))
+        (begin
+          (heph:stats-bump! "fiber_spawns")
+          (heph:stats-bump! "fiber_joins"))
+        #f)
+      (if s1-ok
+        (heph:stats-bump! "correctness_ok")
+        (heph:stats-bump! "correctness_fail"))
+      (display "S1 fiber rebind *3 ok=")
+      (display s1-ok)
+      (display " snap-pre=")
+      (display snap-pre)
+      (display " k=")
+      (display (kscale 7))
+      (newline)
+      (display "S1 r=")
+      (write r1)
+      (newline)
+
+      ; ── S2 golden snapshot after fiber mutate ──
+      (let* ((snap-golden (heph:snapshot "s2-post-fiber-golden"))
+             (s2-ok (and (number? snap-golden) (>= snap-golden 0) (= (kscale 7) 21))))
+        (if s2-ok
+          (heph:stats-bump! "correctness_ok")
+          (heph:stats-bump! "correctness_fail"))
+        (display "S2 golden snap ok=")
+        (display s2-ok)
+        (display " id=")
+        (display snap-golden)
+        (newline)
+
+        ; ── S3 poison then restore golden ──
+        (let* ((fp
+                 (fiber:spawn
+                   (lambda ()
+                     (heph:rebind-safe "kscale" "(lambda (x) (* x 99))" "s3-fiber-poison"))))
+               (rp (if (and (number? fp) (> fp 0)) (fiber:join fp) #f))
+               (poison-ok
+                 (and (pair? rp)
+                      (eq? (heph:alist-ref ":ok" rp #f) #t)
+                      (= (kscale 7) 693)))
+               (rest-g (heph:restore snap-golden))
+               (s3-ok (and poison-ok rest-g (= (kscale 7) 21))))
+          (if (and (number? fp) (> fp 0))
+            (begin
+              (heph:stats-bump! "fiber_spawns")
+              (heph:stats-bump! "fiber_joins"))
+            #f)
+          (if s3-ok
+            (heph:stats-bump! "correctness_ok")
+            (heph:stats-bump! "correctness_fail"))
+          (display "S3 poison-in-fiber then restore golden ok=")
+          (display s3-ok)
+          (display " after-poison k should have been 693; now k=")
+          (display (kscale 7))
+          (newline)
+
+          ; ── S4 restore pre-fiber snap → *2 ──
+          (let* ((rest-pre (heph:restore snap-pre))
+                 (s4-ok (and rest-pre (= (kscale 7) 14))))
+            (if s4-ok
+              (heph:stats-bump! "correctness_ok")
+              (heph:stats-bump! "correctness_fail"))
+            (display "S4 restore pre-fiber snap → *2 ok=")
+            (display s4-ok)
+            (display " k=")
+            (display (kscale 7))
+            (newline)
+
+            ; ── S5 ownership ──
+            (let* ((own (heph:record-own! (heph:own-check)))
+                   (own-ok (eq? (heph:alist-ref ":all-ok" own #f) #t))
+                   (esc0 (= (heph:escape-count) 0))
+                   (all-ok
+                     (and s0-ok s1-ok s2-ok s3-ok s4-ok own-ok esc0
+                          (= (heph:stats-ref "correctness_fail") 0)
+                          (or (= backend 1) (= backend 2)))))
+              (display "S5 own-check: ")
+              (write own)
+              (newline)
+              (display "stats: ")
+              (write (heph:stats-alist))
+              (newline)
+              (if all-ok
+                (begin
+                  (display "PASS: snapshot/restore across fiber mutate (escapes=0)")
+                  (newline)
+                  (display "RESULT pass example=11-snapshot-after-fiber-mutate escapes=0")
+                  (newline))
+                (begin
+                  (display "FAIL: snapshot-after-fiber-mutate")
+                  (newline)
+                  (display "RESULT fail example=11-snapshot-after-fiber-mutate")
+                  (newline)
+                  (display "  s0=")
+                  (display s0-ok)
+                  (display " s1=")
+                  (display s1-ok)
+                  (display " s2=")
+                  (display s2-ok)
+                  (display " s3=")
+                  (display s3-ok)
+                  (display " s4=")
+                  (display s4-ok)
+                  (display " own=")
+                  (display own-ok)
+                  (newline))))))))))
