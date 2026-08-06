@@ -129,53 +129,22 @@ Local development is expected against an Aura checkout (default `../aura-grok` v
 - Mutation of kernel breaks ownership or introduces data races → safety failure  
 - Performance only achievable by leaving observability behind → metrology failure  
 
-## Project structure (initial)
+## Project structure
 
 ```
 hephaestus/
 ├── README.md
 ├── LICENSE
-├── scripts/
-│   └── run-aura.sh
-├── lib/
-│   ├── hephaestus-min.aura      # Phase 1–5 facade (A–F)
-│   ├── hephaestus-kernel.aura   # pure-Aura numerical kernels
-│   ├── hephaestus-measure.aura  # alist stats / wall-time metrology
-│   ├── hephaestus-mutate.aura   # rebind / snapshot / restore
-│   ├── hephaestus-own.aura      # ownership / nodes / quota checks
-│   ├── hephaestus-escape.aura   # metered FFI edge (axis E)
-│   └── README.md
-├── examples/
-│   ├── _template/
-│   ├── 01-minimal-kernel/
-│   ├── 02-mutation-under-load/
-│   ├── 03-ownership-transfer/
-│   ├── 04-jit-specialization/
-│   ├── 05-perf-escape-boundary/
-│   ├── 06-long-n-soak/
-│   ├── 07-long-n-50/
-│   ├── 08-host-anomaly-scan/
-│   ├── 09-concurrent-rebind/
-│   ├── 10-mutate-in-fiber/
-│   ├── 11-snapshot-after-fiber-mutate/
-│   ├── 12-subsecond-metrology/
-│   ├── 13-rebind-observability/
-│   ├── 14-dual-spawn-binding/
-│   ├── 15-concurrent-multi-rebind/
-│   ├── 16-long-n-100/
-│   └── 17-ffi-hotpath-edge/
+├── .github/workflows/denseness.yml
 ├── scripts/
 │   ├── run-aura.sh
 │   ├── run-all.sh
 │   ├── check-structure.sh
 │   └── overnight-soak.sh
-├── notes/
-│   ├── aura-unify.md        # Unify theory (read first)
-│   ├── escape-log.md
-│   ├── denseness-report.md
-│   └── host-residuals.md
-└── prompts/
-    └── GROK.md
+├── lib/                    # hephaestus-{min,measure,kernel,mutate,own,escape}
+├── examples/01 … 17/       # denseness probes
+├── notes/                  # aura-unify, denseness-report, escape-log, host-residuals
+└── prompts/GROK.md
 ```
 
 ## Span order
