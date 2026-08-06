@@ -91,11 +91,14 @@ Rollback (if needed)      →  Specialize / Bind
 | `examples/13-rebind-observability` | **PASS** #2684 rebind epoch/invalidate |
 | `examples/14-dual-spawn-binding` | **PASS** #2685 dual spawn ids |
 | `examples/15-concurrent-multi-rebind` | **PASS** #2686 concurrent dual-name N=20 |
+| `examples/16-long-n-100` | **PASS** soak N=100 |
+| `examples/17-ffi-hotpath-edge` | **PASS** hotpath edge \(E\) ≥600 |
 
-**Upstream fixed & probed:** #2654–#2656, #2684–#2686 (H7/H9/H10 closed).  
-**Next (optional):** overnight soak; SIMD/pin \(E\).
+**Denseness program complete (01–17).** Upstream #2654–#2656, #2684–#2686 closed & probed.  
+**Fiber narrative:** 09 main-mutate+fiber-read · 10 fiber-mutate sequential · 15 concurrent dual-name.  
+**Harness:** `run-all.sh` · `overnight-soak.sh` · CI `.github/workflows/denseness.yml`.
 
-Host style: **`let*`** for sequential binds; multi-define begin OK for dual spawn (#2685); concurrent dual-name rebind OK (#2686); `heph:time-call` uses **monotonic-ms**.
+Host style: **`let*`** binds; `heph:time-call` → **monotonic-ms**.
 
 When generating code or probes, keep the denseness claim **testable** and the escape discipline **strict**.
 

@@ -161,7 +161,14 @@ hephaestus/
 │   ├── 12-subsecond-metrology/
 │   ├── 13-rebind-observability/
 │   ├── 14-dual-spawn-binding/
-│   └── 15-concurrent-multi-rebind/
+│   ├── 15-concurrent-multi-rebind/
+│   ├── 16-long-n-100/
+│   └── 17-ffi-hotpath-edge/
+├── scripts/
+│   ├── run-aura.sh
+│   ├── run-all.sh
+│   ├── check-structure.sh
+│   └── overnight-soak.sh
 ├── notes/
 │   ├── aura-unify.md        # Unify theory (read first)
 │   ├── escape-log.md
@@ -198,21 +205,15 @@ Apache License 2.0 (same as Aura and Aether)
 
 ## Status
 
-**Phase 1–5 complete — denseness judgment recorded.**
+**Denseness complete (probes 01–17).**
 
-On scoped \(S_{\mathrm{Hephaestus}}\), \(V_A\) is **practically dense** for the evolvable / tunable core: pure-Aura kernels, rebind under load, ownership checks, specialization, and N=25 soak stay at **core \(E=0\)**; intentional FFI edges are **metered and isolated** (probe 05). Full write-up: [`notes/denseness-report.md`](notes/denseness-report.md).
+On scoped \(S_{\mathrm{Hephaestus}}\), \(V_A\) is **practically dense** for the evolvable core (**core \(E=0\)**; edge \(E\) metered in 05/17). Full write-up: [`notes/denseness-report.md`](notes/denseness-report.md).
 
 ```bash
-for p in 01-minimal-kernel 02-mutation-under-load 03-ownership-transfer \
-         04-jit-specialization 05-perf-escape-boundary 06-long-n-soak \
-         07-long-n-50 08-host-anomaly-scan 09-concurrent-rebind \
-         10-mutate-in-fiber 11-snapshot-after-fiber-mutate \
-         12-subsecond-metrology 13-rebind-observability \
-         14-dual-spawn-binding 15-concurrent-multi-rebind; do
-  ./scripts/run-aura.sh "examples/$p/main.aura" || exit 1
-done
+./scripts/check-structure.sh    # no binary
+./scripts/run-all.sh            # full suite 01–17
+./scripts/overnight-soak.sh 3   # multi-cycle soak
 ```
 
-Upstream denseness mining **fixed & probed**: #2654 hash, #2655 clock, #2656 fiber, **#2684** obs (13), **#2685** spawn bind (14), **#2686** concurrent multi-rebind (15).
-
+Upstream denseness mining **fixed & probed**: #2654–#2656, #2684–#2686.
 Hephaestus continues Aura Unify’s constructive measurement program after Aether’s agent-loop denseness result — pressure-testing the same basis on performance / numerical / systems-kernel subspace.

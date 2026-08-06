@@ -29,7 +29,17 @@ Format for each entry:
 
 ---
 
+## [2026-08-06] libc abs hotpath edge (axis E denseness 17)
+
+- **Location**: `lib/hephaestus-escape.aura` (`heph:ffi-abs`); `examples/17-ffi-hotpath-edge/`
+- **Reason**: Stress metered edge \(E\) volume (500+ calls) without moving evolvable `kscale` core off pure Aura
+- **Mechanism**: FFI — `(c-func -1 "abs" "(Int) -> Int")`
+- **Impact**: Edge only; core rebind/load after hot E remains pure
+- **Ownership / lifetime implications**: Immediate integer return; no AST ownership impact
+- **Mitigation / future plan**: Keep high-volume E on edges; meter via `heph:escape-count`
+- **Denseness status**: **justified & isolated**
+
 ## Notes
 
-- Probes **01–04** and **06** keep **core and soak paths at escapes=0**.
-- Probe **05** intentionally has **edge_E > 0** while asserting **core_E=0**.
+- Probes **01–04, 06–16** keep **core paths at escapes=0** (except 05/17 edge demos).
+- Probes **05** and **17** intentionally have **edge_E > 0** while asserting **core_E=0**.
