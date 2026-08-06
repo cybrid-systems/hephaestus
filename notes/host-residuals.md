@@ -59,10 +59,10 @@ Format:
 
 ## H7 — Compile / JIT dirty & stats surfaces sparse
 
-- **Observed:** After pure-Aura `mutate:rebind` specialization, `compile:block-dirty-count` stays 0; `compile:jit-stats` / `stats:get "compile:jit-stats"` often empty; `hot-swap:fn` returned `#f` in smoke tests.
-- **Impact on probes:** Axis D denseness is measured via **correctness under load after algorithmic rebind**, not via host JIT counter deltas. Host may still JIT underneath without exposing counters.
-- **Upstream:** **filed** [aura#2684](https://github.com/cybrid-systems/aura/issues/2684)
-- **Status:** mitigated (probe design) / **upstream open #2684**
+- **Observed (historical):** Probes read sticky dirty **after** `eval-current` (often 0) or wrong surfaces.
+- **Upstream:** [aura#2684](https://github.com/cybrid-systems/aura/issues/2684) **closed** — contract: pre-eval dirty and/or lifetime `compile:epoch` / `query:jit-stats-hash` invalidate counters.
+- **Hephaestus:** `examples/13-rebind-observability` asserts epoch/invalidate bump + correctness.
+- **Status:** **closed**
 
 ## H8 — Free-var capture from `let*` into internal `define` helpers
 
@@ -77,12 +77,11 @@ Format:
 - **Upstream:** [aura#2656](https://github.com/cybrid-systems/aura/issues/2656) **fixed** (`f97c3382` positive `0x4000_0000|seq` ids + `fiber:spawn-backend`).
 - **Hephaestus:** `examples/09-concurrent-rebind` PASS; `10-mutate-in-fiber` PASS; `08` reports `HOST_OK id=A-fiber`.
 - **Status:** **closed** (upstream fixed + probes 09–10)
-- **Related (still open):** top-level simultaneous `define` of two spawns can alias ids — **filed** [aura#2685](https://github.com/cybrid-systems/aura/issues/2685); probes use `let*`.
+- **Related:** [aura#2685](https://github.com/cybrid-systems/aura/issues/2685) **closed** — multi-define begin dual spawn → distinct ids; probe `examples/14-dual-spawn-binding`.
 
 ## H10 — Concurrent multi-name rebind from two fibers unstable
 
-- **Observed:** Two fibers calling `heph:rebind-safe` / `mutate:rebind` on **distinct** names at the same time can: empty `fiber:join`, **unbound name** after reported apply, or **SIGABRT** (`FlatAST::get` id assert).
-- **Impact:** Denseness PASS path for multi-name mutate-in-fiber is **sequential** fiber rebinds (spawn+join per name).
-- **Upstream:** **filed** [aura#2686](https://github.com/cybrid-systems/aura/issues/2686) (P1)
-- **Status:** mitigated (probe design) / **upstream open #2686**
-- **Probe:** `examples/10-mutate-in-fiber`
+- **Observed (historical):** Concurrent distinct-name rebind could crash / empty join / unbind.
+- **Upstream:** [aura#2686](https://github.com/cybrid-systems/aura/issues/2686) **closed** — exclusive workspace lock serializes rebind vs eval-current.
+- **Hephaestus:** `examples/15-concurrent-multi-rebind` N=20 dual-name concurrent trials PASS.
+- **Status:** **closed**

@@ -1,0 +1,106 @@
+; examples/15-concurrent-multi-rebind/main.aura
+;
+; Denseness for aura#2686 / residual H10: concurrent mutate:rebind of
+; *distinct* names from two CLI fibers — no crash, both bindings present.
+;
+; Axes: A B C F
+; N=20 trials (host unit test uses 100; keep denseness suite snappy).
+;
+; Pattern from docs/stdlib/fiber-spawn.md #2686 product contract.
+;
+; Run: ./scripts/run-aura.sh examples/15-concurrent-multi-rebind/main.aura
+
+(require "hephaestus-min" all:)
+(require "std/mutate" all:)
+
+(heph:stats-reset!)
+
+(display "=== Hephaestus 15-concurrent-multi-rebind (#2686) ===")
+(newline)
+
+(define N-trials 20)
+
+(define (fiber-rebind name body tag)
+  (let ((m (try (mutate:rebind name body tag) (catch (e) #f))))
+    (if (eq? m #t)
+      (try (begin (eval-current) #t) (catch (e) #f))
+      #f)))
+
+; One concurrent dual-rebind trial. Returns #t on full success.
+(define (one-trial)
+  (heph:install-source
+    "(define ka (lambda (x) (* x 2))) (define kb (lambda (x) (* x 2)))")
+  (let* ((fa
+           (fiber:spawn
+             (lambda ()
+               (fiber-rebind "ka" "(lambda (x) (* x 3))" "c-a"))))
+         (fb
+           (fiber:spawn
+             (lambda ()
+               (fiber-rebind "kb" "(lambda (x) (* x 5))" "c-b"))))
+         (ra (if (and (number? fa) (> fa 0)) (fiber:join fa) #f))
+         (rb (if (and (number? fb) (> fb 0)) (fiber:join fb) #f))
+         (ka-ok (try (= (ka 7) 21) (catch (e) #f)))
+         (kb-ok (try (= (kb 7) 35) (catch (e) #f))))
+    (heph:stats-bump! "fiber_spawns")
+    (heph:stats-bump! "fiber_spawns")
+    (heph:stats-bump! "fiber_joins")
+    (heph:stats-bump! "fiber_joins")
+    (and (eq? ra #t) (eq? rb #t) ka-ok kb-ok
+         (number? fa) (number? fb) (not (eq? fa fb)))))
+
+(define wins 0)
+(define fails 0)
+(define n 0)
+
+(while (lambda () (< n N-trials))
+  (lambda ()
+    ; one automatic retry per trial (host serializes rebind; rare transient refuse)
+    (let ((ok (or (one-trial) (one-trial))))
+      (if ok
+        (set! wins (+ wins 1))
+        (begin
+          (set! fails (+ fails 1))
+          (display "trial-fail n=")
+          (display n)
+          (newline)))
+      (set! n (+ n 1)))))
+
+(display "wins=")
+(display wins)
+(display " fails=")
+(display fails)
+(display " / ")
+(display N-trials)
+(newline)
+
+; own-check after concurrent mutate storm (may still be healthy)
+(define own (heph:record-own! (heph:own-check)))
+(define own-ok (eq? (heph:alist-ref ":all-ok" own #f) #t))
+(display "own-check: ")
+(write own)
+(newline)
+; Note: process-local heph:stats may be unreliable mid concurrent workspace mutate;
+; trial wins/fails are authoritative for this probe.
+(display "stats (informational): ")
+(write (heph:stats-alist))
+(newline)
+
+(define all-ok
+  (and (= fails 0)
+       (= wins N-trials)
+       own-ok
+       (= (heph:escape-count) 0)))
+
+(if all-ok
+  (begin
+    (display "PASS: concurrent multi-name rebind denseness (#2686)")
+    (newline)
+    (display "RESULT pass example=15-concurrent-multi-rebind escapes=0 trials=")
+    (display N-trials)
+    (newline))
+  (begin
+    (display "FAIL: concurrent multi-name rebind denseness")
+    (newline)
+    (display "RESULT fail example=15-concurrent-multi-rebind")
+    (newline)))

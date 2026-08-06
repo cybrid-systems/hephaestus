@@ -48,6 +48,9 @@ Hephaestus does **not** claim denseness over all of \(S_{\mathrm{practical}}\) o
 | [10-mutate-in-fiber](../examples/10-mutate-in-fiber/) | A B C F | **PASS** rebind inside fibers (+ mut‖reader) | 0 | 0 |
 | [11-snapshot-after-fiber-mutate](../examples/11-snapshot-after-fiber-mutate/) | A B C F | **PASS** golden + pre-fiber restore after fiber rebind | 0 | 0 |
 | [12-subsecond-metrology](../examples/12-subsecond-metrology/) | A D F | **PASS** short-path elapsed_ms/ops/s via monotonic-ms | 0 | 0 |
+| [13-rebind-observability](../examples/13-rebind-observability/) | B D F | **PASS** #2684 epoch/invalidate after rebind | 0 | 0 |
+| [14-dual-spawn-binding](../examples/14-dual-spawn-binding/) | host/C | **PASS** #2685 dual spawn distinct ids | 0 | 0 |
+| [15-concurrent-multi-rebind](../examples/15-concurrent-multi-rebind/) | A B C F | **PASS** #2686 concurrent dual-name rebind N=20 | 0 | 0 |
 
 ---
 
@@ -92,10 +95,9 @@ This is a **constructive denseness** judgment (runnable probes + escape accounti
 
 ### Open follow-ups (not blockers for this judgment)
 
-- Hardening concurrent multi-name rebind in fibers (H10 / #2686)  
-- Richer JIT observability (H7 / #2684)  
 - SIMD / multi-buffer FFI with ownership pins  
-- Overnight harness  
+- Overnight / N=100 soak harness  
+- Mutate-in-fiber concurrent multi-name via 15-style (optional unify 10+15)
 
 ### Upstream issues filed from Hephaestus denseness
 
@@ -104,9 +106,9 @@ This is a **constructive denseness** judgment (runnable probes + escape accounti
 | [#2654](https://github.com/cybrid-systems/aura/issues/2654) | H6 | `(hash)` / `hash-set!` grow | **fixed** — measure uses hash again |
 | [#2655](https://github.com/cybrid-systems/aura/issues/2655) | H2 | sub-second / monotonic clock | **closed** (prims + heph:time-call) |
 | [#2656](https://github.com/cybrid-systems/aura/issues/2656) | H9 | `fiber:spawn` positive ids | **fixed** — probes 09–10 |
-| [#2684](https://github.com/cybrid-systems/aura/issues/2684) | H7 | compile/jit dirty empty after rebind | open |
-| [#2685](https://github.com/cybrid-systems/aura/issues/2685) | H9 caveat | top-level dual `define` spawn id alias | open |
-| [#2686](https://github.com/cybrid-systems/aura/issues/2686) | H10 | concurrent multi-name rebind crash/unbind | open (P1) |
+| [#2684](https://github.com/cybrid-systems/aura/issues/2684) | H7 | rebind observability contract | **fixed** — probe 13 |
+| [#2685](https://github.com/cybrid-systems/aura/issues/2685) | H9 caveat | dual spawn binding | **fixed** — probe 14 |
+| [#2686](https://github.com/cybrid-systems/aura/issues/2686) | H10 | concurrent multi-name rebind | **fixed** — probe 15 |
 
 ---
 

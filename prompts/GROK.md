@@ -88,13 +88,14 @@ Rollback (if needed)      →  Specialize / Bind
 | `examples/10-mutate-in-fiber` | **PASS** rebind inside fibers |
 | `examples/11-snapshot-after-fiber-mutate` | **PASS** restore after fiber rebind |
 | `examples/12-subsecond-metrology` | **PASS** short-path ms metrology (#2655) |
+| `examples/13-rebind-observability` | **PASS** #2684 rebind epoch/invalidate |
+| `examples/14-dual-spawn-binding` | **PASS** #2685 dual spawn ids |
+| `examples/15-concurrent-multi-rebind` | **PASS** #2686 concurrent dual-name N=20 |
 
-**Upstream fixed & wired:** #2654 hash, #2656 fiber, #2655 monotonic-ms.  
-**Open:** #2686 concurrent multi-name rebind (H10); #2684 JIT dirty; #2685 spawn define.  
-**Next (optional):** overnight soak; SIMD/pin \(E\); #2686 hard concurrent multi-mutate.
+**Upstream fixed & probed:** #2654–#2656, #2684–#2686 (H7/H9/H10 closed).  
+**Next (optional):** overnight soak; SIMD/pin \(E\).
 
-Host style: **`let*`** for sequential binds/fiber ids; **`while`** not deep recursion; `heph:time-call` uses **monotonic-ms**.  
-Denseness binary: runner prefers `/tmp/aura-denseness-build/build/aura` when present.
+Host style: **`let*`** for sequential binds; multi-define begin OK for dual spawn (#2685); concurrent dual-name rebind OK (#2686); `heph:time-call` uses **monotonic-ms**.
 
 When generating code or probes, keep the denseness claim **testable** and the escape discipline **strict**.
 

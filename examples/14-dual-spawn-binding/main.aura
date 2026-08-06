@@ -1,0 +1,94 @@
+; examples/14-dual-spawn-binding/main.aura
+;
+; Denseness for aura#2685: dual fiber:spawn binding discipline.
+; Axes: host / C (fiber id surface)
+;
+; B0 — preferred let* sequential spawn+join → distinct ids + payloads
+; B1 — multi-define begin dual spawn → distinct positive ids + independent joins
+;
+; Run: ./scripts/run-aura.sh examples/14-dual-spawn-binding/main.aura
+
+(require "hephaestus-min" all:)
+
+(heph:stats-reset!)
+
+(display "=== Hephaestus 14-dual-spawn-binding (#2685) ===")
+(newline)
+
+; ── B0 let* denseness pattern ──
+(let* ((f1 (fiber:spawn (lambda () (+ 1 2))))
+       (j1 (fiber:join f1))
+       (f2 (fiber:spawn (lambda () (+ 10 20))))
+       (j2 (fiber:join f2))
+       (b0-ok
+         (and (number? f1) (number? f2) (> f1 0) (> f2 0)
+              (not (eq? f1 f2))
+              (= j1 3) (= j2 30))))
+  (heph:stats-bump! "fiber_spawns")
+  (heph:stats-bump! "fiber_spawns")
+  (heph:stats-bump! "fiber_joins")
+  (heph:stats-bump! "fiber_joins")
+  (display "B0 let* f1=")
+  (write f1)
+  (display " f2=")
+  (write f2)
+  (display " j1=")
+  (write j1)
+  (display " j2=")
+  (write j2)
+  (display " ok=")
+  (display b0-ok)
+  (newline)
+
+  ; ── B1 multi-define begin product contract ──
+  (let* ((pack
+           (begin
+             (define a (fiber:spawn (lambda () 11)))
+             (define b (fiber:spawn (lambda () 22)))
+             (define ja (fiber:join a))
+             (define jb (fiber:join b))
+             (list a b ja jb)))
+         (a (car pack))
+         (b (car (cdr pack)))
+         (ja (car (cdr (cdr pack))))
+         (jb (car (cdr (cdr (cdr pack)))))
+         (b1-ok
+           (and (number? a) (number? b) (> a 0) (> b 0)
+                (not (eq? a b))
+                (= ja 11) (= jb 22))))
+    (heph:stats-bump! "fiber_spawns")
+    (heph:stats-bump! "fiber_spawns")
+    (heph:stats-bump! "fiber_joins")
+    (heph:stats-bump! "fiber_joins")
+    (display "B1 begin-define a=")
+    (write a)
+    (display " b=")
+    (write b)
+    (display " ja=")
+    (write ja)
+    (display " jb=")
+    (write jb)
+    (display " ok=")
+    (display b1-ok)
+    (newline)
+
+    (display "stats: ")
+    (write (heph:stats-alist))
+    (newline)
+
+    (if (and b0-ok b1-ok)
+      (begin
+        (display "PASS: dual-spawn binding denseness (#2685)")
+        (newline)
+        (display "RESULT pass example=14-dual-spawn-binding escapes=0")
+        (newline))
+      (begin
+        (display "FAIL: dual-spawn binding denseness")
+        (newline)
+        (display "RESULT fail example=14-dual-spawn-binding")
+        (newline)
+        (display "  b0=")
+        (display b0-ok)
+        (display " b1=")
+        (display b1-ok)
+        (newline)))))

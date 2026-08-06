@@ -14,12 +14,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-# Prefer explicit AURA_BIN. Else denseness worktree (#2654/#2656), then aura-grok.
+# Prefer explicit AURA_BIN. Else sibling aura-grok (post-#2684–86 denseness host),
+# then optional denseness worktree, then aura/PATH.
 if [[ -z "${AURA_BIN:-}" ]]; then
-  if [[ -x /tmp/aura-denseness-build/build/aura ]]; then
-    AURA_BIN=/tmp/aura-denseness-build/build/aura
-  elif [[ -x "$ROOT/../aura-grok/build/aura" ]]; then
+  if [[ -x "$ROOT/../aura-grok/build/aura" ]]; then
     AURA_BIN="$ROOT/../aura-grok/build/aura"
+  elif [[ -x /tmp/aura-denseness-build/build/aura ]]; then
+    AURA_BIN=/tmp/aura-denseness-build/build/aura
   elif [[ -x "$ROOT/../aura/build/aura" ]]; then
     AURA_BIN="$ROOT/../aura/build/aura"
   elif command -v aura >/dev/null 2>&1; then
@@ -30,7 +31,6 @@ if [[ -z "${AURA_BIN:-}" ]]; then
   fi
 fi
 
-# Match stdlib to denseness worktree when using that binary.
 if [[ -z "${AURA_LIB:-}" ]]; then
   if [[ "$AURA_BIN" == /tmp/aura-denseness-build/* && -d /tmp/aura-denseness-build/lib/std ]]; then
     AURA_LIB=/tmp/aura-denseness-build/lib

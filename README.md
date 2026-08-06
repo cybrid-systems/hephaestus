@@ -158,7 +158,10 @@ hephaestus/
 │   ├── 09-concurrent-rebind/
 │   ├── 10-mutate-in-fiber/
 │   ├── 11-snapshot-after-fiber-mutate/
-│   └── 12-subsecond-metrology/
+│   ├── 12-subsecond-metrology/
+│   ├── 13-rebind-observability/
+│   ├── 14-dual-spawn-binding/
+│   └── 15-concurrent-multi-rebind/
 ├── notes/
 │   ├── aura-unify.md        # Unify theory (read first)
 │   ├── escape-log.md
@@ -204,13 +207,12 @@ for p in 01-minimal-kernel 02-mutation-under-load 03-ownership-transfer \
          04-jit-specialization 05-perf-escape-boundary 06-long-n-soak \
          07-long-n-50 08-host-anomaly-scan 09-concurrent-rebind \
          10-mutate-in-fiber 11-snapshot-after-fiber-mutate \
-         12-subsecond-metrology; do
+         12-subsecond-metrology 13-rebind-observability \
+         14-dual-spawn-binding 15-concurrent-multi-rebind; do
   ./scripts/run-aura.sh "examples/$p/main.aura" || exit 1
 done
 ```
 
-Upstream denseness mining: **#2654** hash, **#2656** fiber, **#2655** clock — all **fixed** and wired.  
-Open: **#2686** concurrent multi-name rebind, **#2684** JIT dirty, **#2685** spawn define alias.  
-`scripts/run-aura.sh` prefers `/tmp/aura-denseness-build/build/aura` when present.
+Upstream denseness mining **fixed & probed**: #2654 hash, #2655 clock, #2656 fiber, **#2684** obs (13), **#2685** spawn bind (14), **#2686** concurrent multi-rebind (15).
 
 Hephaestus continues Aura Unify’s constructive measurement program after Aether’s agent-loop denseness result — pressure-testing the same basis on performance / numerical / systems-kernel subspace.

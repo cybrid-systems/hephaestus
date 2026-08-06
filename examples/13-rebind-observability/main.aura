@@ -1,0 +1,120 @@
+; examples/13-rebind-observability/main.aura
+;
+; Denseness for aura#2684 / residual H7: pure-Aura mutate:rebind is observable.
+; Axes: B D F
+;
+; Contract (docs/stdlib/hot-strategy.md #2684):
+;   lifetime counters bump: compile:epoch and/or
+;   query:jit-stats-hash hotswap-invalidate-total / mutation-epoch
+;   sticky dirty after eval-current is NOT required
+;
+; Run: ./scripts/run-aura.sh examples/13-rebind-observability/main.aura
+
+(require "hephaestus-min" all:)
+(require "std/mutate" all:)
+(require "std/stats" all:)
+
+(heph:stats-reset!)
+
+(display "=== Hephaestus 13-rebind-observability (#2684) ===")
+(newline)
+
+(define (num v)
+  (if (number? v) v 0))
+
+(define (inv-of h)
+  (if (hash? h) (num (hash-ref h "hotswap-invalidate-total" 0)) 0))
+
+(define (mut-of h)
+  (if (hash? h) (num (hash-ref h "mutation-epoch" 0)) 0))
+
+(heph:install-source
+  "(define sum-kernel (lambda (n) (if (<= n 0) 0 (/ (* (- n 1) n (- (* 2 n) 1)) 6)))")
+
+; Start with closed form so IR is simple; rebind to loop then back — or rebind body only.
+; Warm + baseline counters
+(define warm (sum-kernel 20))
+(define want 2470)
+(display "warm=")
+(display warm)
+(display " want=")
+(display want)
+(newline)
+
+(define epoch0 (num (stats:get "compile:epoch")))
+(define h0 (stats:get "query:jit-stats-hash"))
+(define inv0 (inv-of h0))
+(define mut0 (mut-of h0))
+(display "pre epoch=")
+(display epoch0)
+(display " inv=")
+(display inv0)
+(display " mut=")
+(display mut0)
+(newline)
+
+; Rebind to alternate closed equivalent (multiply identity form) for a real body change
+(define m
+  (try
+    (mutate:rebind
+      "sum-kernel"
+      "(lambda (n) (if (<= n 0) 0 (/ (* n (- n 1) (+ (* 2 n) -1)) 6)))"
+      "obs-rebind")
+    (catch (e) #f)))
+(display "rebind=")
+(display m)
+(newline)
+
+(define dirty-pre
+  (try (compile:block-dirty-count "sum-kernel") (catch (e) -1)))
+(display "dirty-pre-eval=")
+(write dirty-pre)
+(newline)
+
+(define ev-ok (try (begin (eval-current) #t) (catch (e) #f)))
+(display "eval-ok=")
+(display ev-ok)
+(newline)
+
+(define epoch1 (num (stats:get "compile:epoch")))
+(define h1 (stats:get "query:jit-stats-hash"))
+(define inv1 (inv-of h1))
+(define mut1 (mut-of h1))
+(display "post epoch=")
+(display epoch1)
+(display " inv=")
+(display inv1)
+(display " mut=")
+(display mut1)
+(newline)
+
+(define got (sum-kernel 20))
+(define corr-ok (and (number? got) (= got want)))
+(display "got=")
+(display got)
+(display " corr=")
+(display corr-ok)
+(newline)
+
+(define obs-ok
+  (or (> epoch1 epoch0) (> inv1 inv0) (> mut1 mut0)))
+(display "obs-ok=")
+(display obs-ok)
+(newline)
+
+(define warm-ok (and (number? warm) (= warm want)))
+(define all-ok
+  (and warm-ok (eq? m #t) ev-ok corr-ok obs-ok
+       (= (heph:escape-count) 0)))
+
+(if all-ok
+  (begin
+    (display "PASS: rebind observability denseness (#2684)")
+    (newline)
+    (display "RESULT pass example=13-rebind-observability escapes=0")
+    (newline))
+  (begin
+    (display "FAIL: rebind observability denseness")
+    (newline)
+    (display "RESULT fail example=13-rebind-observability")
+    (newline)))
