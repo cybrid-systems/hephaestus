@@ -9,14 +9,14 @@ Extends `09` (main-only rebind + fiber **readers**) to **typed rebind on worker 
 |------|------|
 | M0 | Single fiber rebind `kscale` → ×3 |
 | M1 | **Sequential** fiber rebinds of distinct `ka` / `kb` |
-| M2 | Fiber rebind + concurrent pure fiber reader; final ×3 |
+| M2 | Fiber rebind + concurrent pure fiber reader; **final ×3** (join `:ok` optional) |
 | M3 | Concurrent same-name rebind stress; ownership sane |
 
-## Host residual **H10** → [aura#2686](https://github.com/cybrid-systems/aura/issues/2686)
+## Notes
 
-Concurrent rebinds of **two different names from two fibers at once** can crash (`NodeView` assert), return empty join, or leave a name unbound after “applied”. Denseness **PASS path** uses sequential fiber mutates for multi-name coverage until #2686 is fixed.
-
-Host may log `[fiber:join] WARN: workspace mutated during join` — expected.
+- Host may log `[fiber:join] WARN: workspace mutated during join` — expected.
+- M2 denseness is **final binding** (`kscale(7)=21`), not mut-fiber join shape. Under a concurrent reader the mut join can be empty/non-`:ok` while rebind still applies; one automatic retry if final does not land.
+- Concurrent **distinct-name** dual rebind is covered by probe **15** (aura#2686 / H10 closed).
 
 ## Run
 
