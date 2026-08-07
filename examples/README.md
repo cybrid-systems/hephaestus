@@ -31,6 +31,9 @@ Each probe is a self-contained denseness experiment.
 | 15 | [concurrent-multi-rebind](15-concurrent-multi-rebind/) | A B C F | **PASS** #2686 concurrent dual-name |
 | 16 | [long-n-100](16-long-n-100/) | A B C D F | **PASS** N=100 |
 | 17 | [ffi-hotpath-edge](17-ffi-hotpath-edge/) | A B C E F | **PASS** hot edge \(E\) volume |
+| 18 | [dense-kernels](18-dense-kernels/) | A B F | **PASS** stencil + matmul + gather |
+| 19 | [pin-across-rebind](19-pin-across-rebind/) | A B C F | **PASS** pin-stable-refs lifecycle |
+| 20 | [throughput-envelope](20-throughput-envelope/) | A B D F | **PASS** bounded rebind throughput ratio |
 
 ### Fiber / mutate narrative (09 · 10 · 15)
 
@@ -48,3 +51,4 @@ Each probe is a self-contained denseness experiment.
 | **5+** | 07–12 | Soak ladder, anomaly, fiber, ms metrology |
 | **5++** | 13–15 | #2684–#2686 unlock |
 | **complete** | 16–17 | N=100 soak + hotpath \(E\) |
+| **6** | 18–20 | Kernel breadth + pin + throughput envelope |

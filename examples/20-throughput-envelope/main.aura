@@ -1,0 +1,189 @@
+; examples/20-throughput-envelope/main.aura
+;
+; Phase 6 denseness — Axis F throughput envelope under safe mutation.
+; Same-complexity rebind (kscale ×2 → ×3) must keep measurable throughput
+; within a bounded ratio band (not silent collapse / unmeasurable).
+; Specialization rebind (loop → closed) stays correct + measurable (no upper
+; speedup bound — complexity change is allowed).
+;
+; Axes: A B D F · Escapes: 0
+;
+; Run: ./scripts/run-aura.sh examples/20-throughput-envelope/main.aura
+
+(require "hephaestus-min" all:)
+
+(heph:stats-reset!)
+
+(display "=== Hephaestus 20-throughput-envelope ===")
+(newline)
+(display "heph:min-version=")
+(display heph:min-version)
+(newline)
+
+; Map-load: sum_{i=1..512} kscale(i), repeated. Closed form factor*512*513/2.
+(define closed2 262656)
+(define closed3 393984)
+(define env-lo 400)
+(define env-hi 2500)
+
+(define installed
+  (heph:install-source "(define kscale (lambda (x) (* x 2)))"))
+
+(if (not installed)
+  (begin
+    (display "FAIL: install")
+    (newline)
+    (display "RESULT fail example=20-throughput-envelope")
+    (newline))
+  (let* ((t0-ok (number? (try (monotonic-ms) (catch (e) #f))))
+         (timed-before
+           (heph:time-call
+             (lambda ()
+               (let ((r 0) (last 0))
+                 (while (lambda () (< r 400))
+                   (lambda ()
+                     (let ((i 1) (acc 0))
+                       (while (lambda () (<= i 512))
+                         (lambda ()
+                           (set! acc (+ acc (kscale i)))
+                           (set! i (+ i 1))))
+                       (set! last acc)
+                       (set! r (+ r 1)))))
+                 last))
+             (* 400 512)))
+         (before-ok
+           (and (heph:check-eq (heph:alist-ref ":result" timed-before 0) closed2)
+                (> (heph:alist-ref ":elapsed_ms" timed-before 0) 0)
+                (> (heph:alist-ref ":ops_per_s" timed-before 0) 0)))
+         (r (heph:rebind-safe "kscale" "(lambda (x) (* x 3))" "env-triple"))
+         (r-ok (eq? (heph:alist-ref ":ok" r #f) #t))
+         (timed-after
+           (heph:time-call
+             (lambda ()
+               (let ((r 0) (last 0))
+                 (while (lambda () (< r 400))
+                   (lambda ()
+                     (let ((i 1) (acc 0))
+                       (while (lambda () (<= i 512))
+                         (lambda ()
+                           (set! acc (+ acc (kscale i)))
+                           (set! i (+ i 1))))
+                       (set! last acc)
+                       (set! r (+ r 1)))))
+                 last))
+             (* 400 512)))
+         (after-ok
+           (and r-ok
+                (heph:check-eq (heph:alist-ref ":result" timed-after 0) closed3)
+                (heph:check-eq (kscale 7) 21)
+                (> (heph:alist-ref ":elapsed_ms" timed-after 0) 0)
+                (> (heph:alist-ref ":ops_per_s" timed-after 0) 0)))
+         (ratio (heph:throughput-ratio timed-before timed-after))
+         (env-ok (heph:envelope-ok? ratio env-lo env-hi))
+         (own (heph:record-own! (heph:own-check)))
+         (own-ok (eq? (heph:alist-ref ":all-ok" own #f) #t))
+         ; Specialization: loop sum-sq → closed form (correct + measurable)
+         (loop-body
+           "(lambda (n) (let ((i 0) (acc 0)) (while (lambda () (< i n)) (lambda () (set! acc (+ acc (* i i))) (set! i (+ i 1)))) acc))")
+         (closed-body
+           "(lambda (n) (if (<= n 0) 0 (/ (* (- n 1) n (- (* 2 n) 1)) 6)))")
+         (n-spec 60000)
+         (want-spec (heph:closed-sum-sq n-spec))
+         (inst2
+           (heph:install-source
+             (string-append "(define sum-kernel " loop-body ")"
+                            " (define kscale (lambda (x) (* x 3)))")))
+         (spec-loop
+           (heph:time-call (lambda () (sum-kernel 60000)) 60000))
+         (spec-loop-ok
+           (and inst2
+                (heph:check-eq (heph:alist-ref ":result" spec-loop 0) want-spec)
+                (> (heph:alist-ref ":elapsed_ms" spec-loop 0) 0)))
+         (rs (heph:rebind-safe "sum-kernel" closed-body "env-spec-closed"))
+         (rs-ok (eq? (heph:alist-ref ":ok" rs #f) #t))
+         ; Closed is O(1): burn reps so elapsed_ms > 0
+         (spec-closed
+           (heph:time-call
+             (lambda ()
+               (let ((r 0) (last 0))
+                 (while (lambda () (< r 5000))
+                   (lambda ()
+                     (set! last (sum-kernel 60000))
+                     (set! r (+ r 1))))
+                 last))
+             5000))
+         (spec-closed-ok
+           (and rs-ok
+                (heph:check-eq (heph:alist-ref ":result" spec-closed 0) want-spec)
+                (>= (heph:alist-ref ":elapsed_ms" spec-closed -1) 0)))
+         (all-ok
+           (and t0-ok before-ok after-ok env-ok own-ok
+                spec-loop-ok spec-closed-ok
+                (= (heph:escape-count) 0)
+                (= (heph:stats-ref "correctness_fail") 0))))
+    (display "T0 clock-ok=")
+    (display t0-ok)
+    (newline)
+    (display "T1 before rebind: ")
+    (write timed-before)
+    (newline)
+    (display "T1 before-ok=")
+    (display before-ok)
+    (newline)
+    (display "T2 rebind: ")
+    (write r)
+    (newline)
+    (display "T2 after rebind: ")
+    (write timed-after)
+    (newline)
+    (display "T2 after-ok=")
+    (display after-ok)
+    (newline)
+    (display "T3 ratio_permille=")
+    (display ratio)
+    (display " band=[")
+    (display env-lo)
+    (display ",")
+    (display env-hi)
+    (display "] env-ok=")
+    (display env-ok)
+    (newline)
+    (display "T4 spec loop: ")
+    (write spec-loop)
+    (newline)
+    (display "T4 spec closed: ")
+    (write spec-closed)
+    (newline)
+    (display "T4 spec-loop-ok=")
+    (display spec-loop-ok)
+    (display " spec-closed-ok=")
+    (display spec-closed-ok)
+    (newline)
+    (display "stats: ")
+    (write (heph:stats-alist))
+    (newline)
+    (if all-ok
+      (begin
+        (display "PASS: throughput envelope under rebind (escapes=0)")
+        (newline)
+        (display "RESULT pass example=20-throughput-envelope escapes=0 ratio=")
+        (display ratio)
+        (newline))
+      (begin
+        (display "FAIL: throughput-envelope denseness")
+        (newline)
+        (display "RESULT fail example=20-throughput-envelope")
+        (newline)
+        (display "  before-ok=")
+        (display before-ok)
+        (display " after-ok=")
+        (display after-ok)
+        (display " env-ok=")
+        (display env-ok)
+        (display " ratio=")
+        (display ratio)
+        (display " spec-loop-ok=")
+        (display spec-loop-ok)
+        (display " spec-closed-ok=")
+        (display spec-closed-ok)
+        (newline)))))

@@ -13,6 +13,9 @@ for c in $(seq 1 "$CYCLES"); do
   ./scripts/run-aura.sh examples/16-long-n-100/main.aura
   ./scripts/run-aura.sh examples/15-concurrent-multi-rebind/main.aura
   ./scripts/run-aura.sh examples/11-snapshot-after-fiber-mutate/main.aura
+  ./scripts/run-aura.sh examples/18-dense-kernels/main.aura
+  ./scripts/run-aura.sh examples/19-pin-across-rebind/main.aura
+  ./scripts/run-aura.sh examples/20-throughput-envelope/main.aura
 done
 
 echo "[overnight] ALL $CYCLES cycles PASS"

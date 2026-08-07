@@ -4,15 +4,22 @@
 ;
 ; Iterative (while) only — deep recursion hits host depth limits on hot paths.
 ; No FFI / SIMD. Escape count for these kernels is 0 by construction.
+;
+; v1: dense 1D BLAS-1 fragments (sum-sq, dot, saxpy, reduce)
+; v2: stencil / matmul / sparse gather (Phase 6 denseness breadth)
 
 (export heph:fill-index!
         heph:sum-sq
         heph:dot
         heph:saxpy!
         heph:reduce-sum
+        heph:jacobi1d!
+        heph:matmul!
+        heph:gather-sum
+        heph:fill-const!
         heph:kernel-version)
 
-(define heph:kernel-version 1)
+(define heph:kernel-version 2)
 
 ; Fill vector v[i] = base + i for i in [0, n).
 (define (heph:fill-index! v n base)
@@ -20,6 +27,15 @@
     (while (lambda () (< i n))
       (lambda ()
         (vector-set! v i (+ base i))
+        (set! i (+ i 1))))
+    v))
+
+; Fill vector v[i] = val for i in [0, n).
+(define (heph:fill-const! v n val)
+  (let ((i 0))
+    (while (lambda () (< i n))
+      (lambda ()
+        (vector-set! v i val)
         (set! i (+ i 1))))
     v))
 
@@ -56,5 +72,53 @@
     (while (lambda () (< i n))
       (lambda ()
         (set! acc (+ acc (vector-ref v i)))
+        (set! i (+ i 1))))
+    acc))
+
+; 1D Jacobi stencil (integer): out[i] = (in[i-1]+in[i]+in[i+1])/3
+; Ends copied. Neighbourhood access — denseness beyond pure BLAS-1.
+(define (heph:jacobi1d! in out n)
+  (vector-set! out 0 (vector-ref in 0))
+  (vector-set! out (- n 1) (vector-ref in (- n 1)))
+  (let ((i 1))
+    (while (lambda () (< i (- n 1)))
+      (lambda ()
+        (vector-set! out i
+          (quotient
+            (+ (+ (vector-ref in (- i 1)) (vector-ref in i))
+               (vector-ref in (+ i 1)))
+            3))
+        (set! i (+ i 1))))
+    out))
+
+; Dense matmul C = A * B for n×n matrices stored row-major flat (len n*n).
+; Nested triple loop — memory-layout + multi-level hot path denseness.
+(define (heph:matmul! A B C n)
+  (let ((i 0))
+    (while (lambda () (< i n))
+      (lambda ()
+        (begin
+          (let ((j 0))
+            (while (lambda () (< j n))
+              (lambda ()
+                (let ((k 0) (acc 0))
+                  (while (lambda () (< k n))
+                    (lambda ()
+                      (set! acc
+                        (+ acc
+                           (* (vector-ref A (+ (* i n) k))
+                              (vector-ref B (+ (* k n) j)))))
+                      (set! k (+ k 1))))
+                  (vector-set! C (+ (* i n) j) acc)
+                  (set! j (+ j 1))))))
+          (set! i (+ i 1)))))
+    C))
+
+; Sparse gather: sum_{i=0}^{m-1} v[idx[i]]  (indirect indexing denseness).
+(define (heph:gather-sum v idx m)
+  (let ((i 0) (acc 0))
+    (while (lambda () (< i m))
+      (lambda ()
+        (set! acc (+ acc (vector-ref v (vector-ref idx i))))
         (set! i (+ i 1))))
     acc))

@@ -4,12 +4,12 @@ Composable denseness helpers. Prefer these modules from probes; do not fork Aura
 
 | Module | Axes | Role |
 |--------|------|------|
-| `hephaestus-measure.aura` | F | Process **hash** stats (#2654 grow), wall-time, ops/s |
-| `hephaestus-kernel.aura` | A | Pure-Aura numerical kernels (`while` loops) |
+| `hephaestus-measure.aura` | F | Process **hash** stats, ms timing, ops/s, **throughput envelope** |
+| `hephaestus-kernel.aura` | A | Pure-Aura kernels: BLAS-1 + **jacobi / matmul / gather** (v2) |
 | `hephaestus-mutate.aura` | B | install / snapshot / restore / rebind-safe |
-| `hephaestus-own.aura` | C | ownership/nodes/quota checks |
+| `hephaestus-own.aura` | C | ownership/nodes/quota + **pin-stable-refs** helpers |
 | `hephaestus-escape.aura` | E | Metered FFI edge (`ffi-abs`) + pure-abs |
-| `hephaestus-min.aura` | A–F | Facade re-export for Phase 1–5 probes |
+| `hephaestus-min.aura` | A–F | Facade re-export (min-version 8, Phase 1–6) |
 
 Host resolution: `scripts/run-aura.sh` sets `AURA_PATH` to `../aura-grok/lib:./lib`.
 

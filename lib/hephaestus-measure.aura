@@ -18,7 +18,9 @@
         heph:alist-ref
         heph:time-call
         heph:ops-per-sec
-        heph:ops-per-ms)
+        heph:ops-per-ms
+        heph:throughput-ratio
+        heph:envelope-ok?)
 
 (define (heph:alist-ref key lst default)
   (let loop ((ys lst))
@@ -122,3 +124,26 @@
   (if (and (number? ops) (number? elapsed-ms) (> elapsed-ms 0))
     (quotient ops elapsed-ms)
     0))
+
+; Throughput ratio after/before as permille (1000 = equal).
+; Uses ops_per_s when both > 0; else falls back to inverse elapsed_ms ratio
+; when ops equal (caller must use same ops budget).
+; Returns 0 if not measurable.
+(define (heph:throughput-ratio timed-before timed-after)
+  (let ((ops-b (heph:alist-ref ":ops_per_s" timed-before 0))
+        (ops-a (heph:alist-ref ":ops_per_s" timed-after 0))
+        (ms-b (heph:alist-ref ":elapsed_ms" timed-before 0))
+        (ms-a (heph:alist-ref ":elapsed_ms" timed-after 0)))
+    (cond
+      ((and (number? ops-b) (number? ops-a) (> ops-b 0) (> ops-a 0))
+        (quotient (* ops-a 1000) ops-b))
+      ((and (number? ms-b) (number? ms-a) (> ms-b 0) (> ms-a 0))
+        (quotient (* ms-b 1000) ms-a))
+      (else 0))))
+
+; Envelope: ratio (permille) must sit in [lo, hi]. Default denseness band
+; allows specialization speedups and modest rebind overhead (e.g. 200–5000).
+(define (heph:envelope-ok? ratio lo hi)
+  (and (number? ratio) (> ratio 0)
+       (number? lo) (number? hi)
+       (>= ratio lo) (<= ratio hi)))

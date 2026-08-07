@@ -72,7 +72,7 @@ Rollback (if needed)      →  Specialize / Bind
 
 ## Current phase goal
 
-**Phase 1–5 complete.** Denseness judgment: practically dense on scoped \(S_{\mathrm{Hephaestus}}\) (see `notes/denseness-report.md`).
+**Phase 1–6 complete.** Denseness judgment: practically dense on scoped \(S_{\mathrm{Hephaestus}}\) (see `notes/denseness-report.md`).
 
 | Probe | Status |
 |-------|--------|
@@ -93,12 +93,16 @@ Rollback (if needed)      →  Specialize / Bind
 | `examples/15-concurrent-multi-rebind` | **PASS** #2686 concurrent dual-name N=20 |
 | `examples/16-long-n-100` | **PASS** soak N=100 |
 | `examples/17-ffi-hotpath-edge` | **PASS** hotpath edge \(E\) ≥600 |
+| `examples/18-dense-kernels` | **PASS** Jacobi + matmul + gather |
+| `examples/19-pin-across-rebind` | **PASS** pin-stable-refs lifecycle |
+| `examples/20-throughput-envelope` | **PASS** bounded rebind throughput ratio |
 
-**Denseness program complete (01–17).** Upstream #2654–#2656, #2684–#2686 closed & probed.  
+**Denseness program complete (01–20; Phase 6 breadth).** Upstream #2654–#2656, #2684–#2686 closed & probed.  
 **Fiber narrative:** 09 main-mutate+fiber-read · 10 fiber-mutate sequential · 15 concurrent dual-name.  
+**Phase 6:** 18 kernel shapes · 19 pin table · 20 throughput envelope.  
 **Harness:** `run-all.sh` · `overnight-soak.sh` · CI `.github/workflows/denseness.yml`.
 
-Host style: **`let*`** binds; `heph:time-call` → **monotonic-ms**.
+Host style: **`let*`** binds (not internal `define` after side effects — H1); avoid free-capture of `let*` locals in helpers (H8); `heph:time-call` → **monotonic-ms**.
 
 When generating code or probes, keep the denseness claim **testable** and the escape discipline **strict**.
 

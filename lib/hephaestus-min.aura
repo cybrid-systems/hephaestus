@@ -1,17 +1,21 @@
-; lib/hephaestus-min.aura — Phase 1–5 facade (Axes A–F)
+; lib/hephaestus-min.aura — Phase 1–6 facade (Axes A–F)
 ;
 ; (require "hephaestus-min" all:)
 
 (export heph:stats heph:stats-reset! heph:stats-ref heph:stats-bump!
         heph:stats-set! heph:stats-alist heph:alist-ref
         heph:time-call heph:ops-per-sec heph:ops-per-ms
-        heph:fill-index! heph:sum-sq heph:dot heph:saxpy! heph:reduce-sum
+        heph:throughput-ratio heph:envelope-ok?
+        heph:fill-index! heph:fill-const!
+        heph:sum-sq heph:dot heph:saxpy! heph:reduce-sum
+        heph:jacobi1d! heph:matmul! heph:gather-sum
         heph:kernel-version heph:min-version
         heph:closed-sum-sq heph:check-eq
         heph:install-source heph:safety-ok? heph:snapshot heph:restore
         heph:rebind-safe
         heph:alist-get heph:ownership-pass? heph:nodes-pass?
         heph:own-check heph:safety-alist heph:own-ok? heph:record-own!
+        heph:pin-nodes heph:unpin-nodes heph:pin-ok?
         heph:escape-note! heph:escape-count heph:with-escape
         heph:ffi-abs heph:pure-abs heph:ffi-sqrt heph:escape-version)
 
@@ -21,7 +25,7 @@
 (require "hephaestus-own" all:)
 (require "hephaestus-escape" all:)
 
-(define heph:min-version 7)
+(define heph:min-version 8)
 
 ; Closed form: sum_{i=0}^{n-1} i^2 = (n-1)n(2n-1)/6
 (define (heph:closed-sum-sq n)

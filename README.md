@@ -142,7 +142,7 @@ hephaestus/
 │   ├── check-structure.sh
 │   └── overnight-soak.sh
 ├── lib/                    # hephaestus-{min,measure,kernel,mutate,own,escape}
-├── examples/01 … 17/       # denseness probes
+├── examples/01 … 20/       # denseness probes
 ├── notes/                  # aura-unify, denseness-report, escape-log, host-residuals
 └── prompts/GROK.md
 ```
@@ -155,7 +155,8 @@ hephaestus/
 | **2** | Mutation / rebind of kernels under controlled load | **done** (02) |
 | **3** | Ownership / AST integrity under alloc + rebind | **done** (03) |
 | **4** | Pure-Aura specialization under load | **done** (04) |
-| **5** | Controlled \(E\) + soak + denseness judgment | **done** (05–06) |
+| **5** | Controlled \(E\) + soak + denseness judgment | **done** (05–17) |
+| **6** | Kernel breadth + pin lifecycle + throughput envelope | **done** (18–20) |
 
 ## Escape discipline
 
@@ -174,13 +175,13 @@ Apache License 2.0 (same as Aura and Aether)
 
 ## Status
 
-**Denseness complete (probes 01–17).**
+**Denseness complete (probes 01–20; Phase 6 breadth).**
 
-On scoped \(S_{\mathrm{Hephaestus}}\), \(V_A\) is **practically dense** for the evolvable core (**core \(E=0\)**; edge \(E\) metered in 05/17). Full write-up: [`notes/denseness-report.md`](notes/denseness-report.md).
+On scoped \(S_{\mathrm{Hephaestus}}\), \(V_A\) is **practically dense** for the evolvable core (**core \(E=0\)**; edge \(E\) metered in 05/17). Phase 6 adds stencil/matmul/gather, pin-stable-refs, and throughput-envelope probes. Full write-up: [`notes/denseness-report.md`](notes/denseness-report.md).
 
 ```bash
 ./scripts/check-structure.sh    # no binary
-./scripts/run-all.sh            # full suite 01–17
+./scripts/run-all.sh            # full suite 01–20
 ./scripts/overnight-soak.sh 3   # multi-cycle soak
 ```
 

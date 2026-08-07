@@ -1,8 +1,8 @@
 # Denseness Report — Hephaestus
 
-**Date:** 2026-08-06  
-**Status:** **Complete** — probes **01–17** PASS; soak ladder through N=100; CI + overnight harness.  
-**Judgment:** on scoped \(S_{\mathrm{Hephaestus}}\), \(V_A\) is **practically dense** for the evolvable / tunable core, with controlled metered edge \(E\).
+**Date:** 2026-08-07  
+**Status:** **Complete + Phase 6 breadth** — probes **01–20** PASS; soak ladder through N=100; pin + kernel shapes + throughput envelope.  
+**Judgment:** on scoped \(S_{\mathrm{Hephaestus}}\), \(V_A\) is **practically dense** for the evolvable / tunable core, with controlled metered edge \(E\). Phase 6 deepens Axes A / C / F without reopening the claim.
 
 **Theory:** [aura-unify.md](aura-unify.md)  
 **Prior span:** `../aether/notes/denseness-report.md` — \(S_{\mathrm{Aether}}\) practically dense (reference only)
@@ -17,9 +17,9 @@ P \approx A \oplus E,\quad A \in V_A
 
 | In scope | Out of scope |
 |----------|--------------|
-| Pure-Aura kernels, rebind, ownership | Full ML / hard realtime / drivers |
+| Pure-Aura kernels (BLAS-1, stencil, matmul, gather), rebind, ownership + pin | Full ML / hard realtime / drivers |
 | Fiber load + fiber mutate + concurrent dual-name rebind | Product multi-tenant platforms |
-| Specialization + rebind observability | GPU product kernels |
+| Specialization + rebind observability + **throughput envelope** | GPU product kernels |
 | Metered FFI edge (thin + hotpath volume) | Unmetered foreign code on core path |
 | Soak N=25 / 50 / 100 + overnight cycles | Infinite soak |
 
@@ -46,6 +46,9 @@ P \approx A \oplus E,\quad A \in V_A
 | [15](../examples/15-concurrent-multi-rebind/) | A B C F | **PASS** #2686 concurrent dual-name | 0 | 0 |
 | [16](../examples/16-long-n-100/) | A B C D F | **PASS** N=100 | 0 | 0 |
 | [17](../examples/17-ffi-hotpath-edge/) | A B C E F | **PASS** hotpath edge \(E\) volume | 0 | ≥600 |
+| [18](../examples/18-dense-kernels/) | A B F | **PASS** Jacobi + matmul + gather | 0 | 0 |
+| [19](../examples/19-pin-across-rebind/) | A B C F | **PASS** pin-stable-refs + rebind | 0 | 0 |
+| [20](../examples/20-throughput-envelope/) | A B D F | **PASS** ratio band under rebind | 0 | 0 |
 
 ### Fiber / mutate narrative (09 · 10 · 15)
 
@@ -55,15 +58,31 @@ P \approx A \oplus E,\quad A \in V_A
 | **10** | fiber | sequential multi-name; mut‖reader; same-name stress |
 | **15** | two fibers | concurrent rebind of **distinct** names (post-#2686) |
 
+### Phase 6 narrative (18 · 19 · 20)
+
+| Probe | Gap closed |
+|-------|------------|
+| **18** | Axis A breadth: neighbourhood stencil, nested matmul, sparse gather |
+| **19** | Axis C pin table: `pin-stable-refs` / `unpin-stable-refs` across alloc + rebind + restore |
+| **20** | Axis F envelope: same-complexity rebind keeps throughput ratio in band; specialization stays measurable |
+
 ---
 
 ## Judgment
 
 > On scoped \(S_{\mathrm{Hephaestus}}\), \(V_A\) is **practically dense** for the evolvable core.  
-> Soak through **N=100**, fiber mutate, concurrent dual-name rebind, sub-second metrology, and rebind observability all hold with **core \(E=0\)**.  
+> Soak through **N=100**, fiber mutate, concurrent dual-name rebind, sub-second metrology, rebind observability, **kernel shape breadth**, **pin lifecycle**, and **throughput envelope** all hold with **core \(E=0\)**.  
 > Foreign edges (**05**, **17**) are **metered and isolated**.
 
 Constructive denseness only — not a proof over all numerical software.
+
+### Remaining thin regions (not failures)
+
+| Region | Status |
+|--------|--------|
+| SIMD / buffer FFI \(E\) | Still sample-level (scalar `abs` only) |
+| 2D stencil / large GEMM | 1D Jacobi + small dense matmul only |
+| Arena transfer / linear types as first-class probe | Pin table exercised; full linear surface not |
 
 ### Upstream issues (denseness mining)
 
@@ -82,7 +101,7 @@ Constructive denseness only — not a proof over all numerical software.
 
 ```bash
 ./scripts/check-structure.sh   # no binary
-./scripts/run-all.sh           # full 01–17 (needs aura)
+./scripts/run-all.sh           # full 01–20 (needs aura)
 ./scripts/overnight-soak.sh 3  # budgeted multi-cycle soak
 ```
 

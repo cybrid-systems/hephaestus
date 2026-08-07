@@ -34,7 +34,8 @@ for n in 01-minimal-kernel 02-mutation-under-load 03-ownership-transfer \
          07-long-n-50 08-host-anomaly-scan 09-concurrent-rebind \
          10-mutate-in-fiber 11-snapshot-after-fiber-mutate 12-subsecond-metrology \
          13-rebind-observability 14-dual-spawn-binding 15-concurrent-multi-rebind \
-         16-long-n-100 17-ffi-hotpath-edge; do
+         16-long-n-100 17-ffi-hotpath-edge 18-dense-kernels \
+         19-pin-across-rebind 20-throughput-envelope; do
   need "examples/$n/main.aura"
 done
 

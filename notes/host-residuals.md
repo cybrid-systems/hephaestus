@@ -17,9 +17,10 @@ Format:
 ## H1 — Internal `define` acts like simultaneous `letrec`
 
 - **Observed:** Inside `(begin …)` / internal define scopes, dependent bindings such as `(define N 2048) (define v (make-vector N 0))` can see `N` uninitialized → zero-length / wrong vectors; later top-level defines after large `while` loads also showed unbound names.
+- **Phase 6 repro (stable):** After `vector-set!` / kernel fill, `(define ok (= (vector-ref out …) …))` yields `#f` while a later `(vector-ref out …)` is correct — define inits see pre-mutation state.
 - **Impact on probes:** Kernel probes must use **`let*`** (or top-level defines without internal-define dependency chains) for sequential binding.
-- **Upstream or local fix:** Prefer `let*` in Hephaestus probes; optionally file Aura host note if simultaneous internal-define is unintended.
-- **Status:** mitigated (probe style)
+- **Upstream:** [aura#2740](https://github.com/cybrid-systems/aura/issues/2740)
+- **Status:** mitigated (probe style); **filed**
 
 ## H2 — `(current-time)` is whole-second wall clock
 
@@ -67,9 +68,10 @@ Format:
 ## H8 — Free-var capture from `let*` into internal `define` helpers
 
 - **Observed:** Helpers defined with `(define (f) … N …)` inside a `let*` that binds `N` can see `N` as 0/unusable at call time in some host configurations (map-load returned 0 until literals were inlined). Not always reproducible in minimal repros.
+- **Phase 6:** probe 19 load returned 0 until buffer was a **top-level global** (`heph19-vx`); free-capture of `let*` vector under denseness packaging unreliable. Interacts with **H1**.
 - **Impact on probes:** Prefer **literals** or globals for hot helpers; avoid relying on free capture of let*-locals in denseness kernels.
-- **Upstream or local fix:** local probe style; file separate issue if a minimal stable repro appears.
-- **Status:** mitigated (probe style)
+- **Upstream:** [aura#2739](https://github.com/cybrid-systems/aura/issues/2739)
+- **Status:** mitigated (probe style); **filed**
 
 ## H9 — `fiber:spawn` returns -1 (concurrent denseness blocked)
 
@@ -83,5 +85,15 @@ Format:
 
 - **Observed (historical):** Concurrent distinct-name rebind could crash / empty join / unbind.
 - **Upstream:** [aura#2686](https://github.com/cybrid-systems/aura/issues/2686) **closed** — exclusive workspace lock serializes rebind vs eval-current.
-- **Hephaestus:** `examples/15-concurrent-multi-rebind` N=20 dual-name concurrent trials PASS.
-- **Status:** **closed**
+- **Hephaestus:** `examples/15-concurrent-multi-rebind` N=20 dual-name concurrent trials PASS when host does not abort.
+- **Status:** **closed** (contract); residual flake → **H11**
+
+## H11 — Intermittent host abort in concurrent multi-rebind (probe 15)
+
+- **Observed (2026-08-07):** `examples/15-concurrent-multi-rebind` usually **PASS** (20/20 trials), but occasionally **SIGABRT** mid-run:
+  - `contract violation: assert … FlatAST::get … id < sym_id_.size()` at `ast.ixx:4480`
+  - or `std::vector::operator[]` / `std::span::operator[]` assert
+  - often after `[fiber:join] WARN: workspace mutated during join`
+- **Impact on probes:** Suite can report fail=1 on 15 without denseness logic regression; re-run 15 alone usually PASS. Phase 6 probes 18–20 unaffected.
+- **Upstream:** [aura#2738](https://github.com/cybrid-systems/aura/issues/2738) (follow-up to closed #2686). Do **not** treat as \(S_{\mathrm{Hephaestus}}\) denseness collapse when RESULT pass is otherwise observed.
+- **Status:** open (host flake); **filed**

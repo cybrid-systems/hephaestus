@@ -7,9 +7,10 @@
 ;   (ast:validate-nodes)      → alist with :pass
 ;   (ast:validate-post-restore)
 ;   (mutate:safety-snapshot)  → boundary / quota signals
+;   (pin-stable-refs) / (unpin-stable-refs) — Agent pin table (#2189)
 ;
-; pin-stable-refs requires concrete stable-ref handles; Phase 3a denseness
-; measures validate-ownership across rebind + alloc pressure instead.
+; Phase 3: validate-ownership across rebind + alloc pressure.
+; Phase 6: pin bare node-ids across rebind + alloc (probe 19).
 
 (export heph:alist-get
         heph:ownership-pass?
@@ -17,7 +18,10 @@
         heph:own-check
         heph:safety-alist
         heph:own-ok?
-        heph:record-own!)
+        heph:record-own!
+        heph:pin-nodes
+        heph:unpin-nodes
+        heph:pin-ok?)
 
 (require "std/mutate" all:)
 (require "hephaestus-measure" all:)
@@ -80,3 +84,21 @@
     (heph:stats-bump! "ownership_ok")
     (heph:stats-bump! "ownership_fail"))
   check)
+
+; ── Pin table helpers (bare node-ids; host accepts int handles) ──
+; Returns count of pins registered, or -1 on failure.
+(define (heph:pin-nodes . ids)
+  (try
+    (let ((n (apply pin-stable-refs ids)))
+      (if (number? n) n -1))
+    (catch (e) -1)))
+
+; Returns count unpinned, or -1 on failure. Host may return 0 if already gone.
+(define (heph:unpin-nodes . ids)
+  (try
+    (let ((n (apply unpin-stable-refs ids)))
+      (if (number? n) n -1))
+    (catch (e) -1)))
+
+(define (heph:pin-ok? pin-count)
+  (and (number? pin-count) (>= pin-count 1)))

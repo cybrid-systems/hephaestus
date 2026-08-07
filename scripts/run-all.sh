@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run full offline denseness suite (01–17). Requires Aura binary.
+# Run full offline denseness suite (01–20). Requires Aura binary.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -22,6 +22,9 @@ PROBES=(
   15-concurrent-multi-rebind
   16-long-n-100
   17-ffi-hotpath-edge
+  18-dense-kernels
+  19-pin-across-rebind
+  20-throughput-envelope
 )
 
 pass=0
